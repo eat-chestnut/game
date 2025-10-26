@@ -8,6 +8,7 @@ export class QAConsole {
     this.skillSystem = skillSystem;
     this.uiFactory = new UIFactory(scene);
     this.container = scene.add.container(120, 1450).setDepth(200);
+    this.lastDelta = 16;
     this.build();
   }
 
@@ -37,6 +38,7 @@ export class QAConsole {
     for (let i = 0; i < 50; i++) {
       this.scene.spawnEnemy(true);
     }
+    this.logSnapshot('Spawn50');
   }
 
   levelTo10() {
@@ -48,6 +50,7 @@ export class QAConsole {
     if (fireRate < GameState.globals.minFireRate) {
       console.warn('QA assertion failed: fireRate below minimum');
     }
+    this.logSnapshot('LevelUpTo10');
   }
 
   spreadTest() {
@@ -58,13 +61,30 @@ export class QAConsole {
     const expected = Math.max(1.2, Math.pow(1.1, 3));
     console.log('SpreadTest => totalMultiplier', pattern.totalMultiplier, 'expected', expected, 'angles', pattern.angles);
     console.assert(Math.abs(pattern.totalMultiplier - expected) < 0.01, 'QA: total multiplier mismatch');
+    this.logSnapshot('SpreadTest');
   }
 
   updateMetrics(delta) {
+    this.lastDelta = delta;
     const fps = delta > 0 ? Math.round(1000 / delta) : 0;
     const pattern = GameState.globals.baseShotPattern;
     const fireRate = this.scene.getEffectiveFireRate().toFixed(2);
     const totalMul = pattern.totalMultiplier.toFixed(2);
     this.metricsText.setText(`FPS:${fps}\nfireRate:${fireRate}s\nshots:${pattern.angles.length}\ntotalMul:${totalMul}`);
+  }
+
+  getMetricsSnapshot() {
+    const fps = this.lastDelta > 0 ? Math.round(1000 / this.lastDelta) : 0;
+    return {
+      fps,
+      fireRate: Number(this.scene.getEffectiveFireRate().toFixed(2)),
+      totalMultiplier: Number(GameState.globals.baseShotPattern.totalMultiplier.toFixed(2)),
+      level: GameState.globals.level,
+      skills: { ...GameState.skillState }
+    };
+  }
+
+  logSnapshot(label) {
+    console.log(`[QA:${label}]`, this.getMetricsSnapshot());
   }
 }

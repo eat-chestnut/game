@@ -24,6 +24,8 @@ export class GameScene extends Phaser.Scene {
       enemyHP: 20,
       spawnRate: 0.8
     };
+    this.maxSplitBullets = 50;
+    this.maxEnemies = 80;
     this.toastManager = new ToastManager(this);
     this.pauseSystem = new PauseSystem(this);
     this.audio = new AudioSystem(this);
@@ -32,6 +34,7 @@ export class GameScene extends Phaser.Scene {
     this.buildBackground();
     this.createPlayer();
     this.createGroups();
+    this.splitBulletCount = 0;
     this.buildHUD();
     this.skillSystem = new SkillSystem(this, this.toastManager);
     this.skillSystem.ensureInitialState();
@@ -58,8 +61,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   createGroups() {
-    this.enemies = this.physics.add.group();
-    this.playerBullets = this.physics.add.group();
+    this.enemies = this.physics.add.group({
+      maxSize: this.maxEnemies,
+      runChildUpdate: false
+    });
+    this.playerBullets = this.physics.add.group({
+      maxSize: 200,
+      runChildUpdate: false
+    });
   }
 
   buildHUD() {
@@ -122,7 +131,7 @@ export class GameScene extends Phaser.Scene {
   setupCollisions() {
     this.physics.add.overlap(this.playerBullets, this.enemies, (bullet, enemy) => this.handleBulletHit(bullet, enemy));
     this.physics.add.overlap(this.player, this.enemies, (_player, enemy) => {
-      enemy?.destroy();
+      this.releaseEnemy(enemy);
       this.endGame('碰撞');
     });
     this.physics.add.overlap(this.player, this.lootSystem.lootGroup, (_player, loot) => this.lootSystem.collect(loot));
@@ -135,7 +144,7 @@ export class GameScene extends Phaser.Scene {
       if (!obj || typeof obj.getData !== 'function') return;
       if (!obj.getData('damage')) return;
       if (!this.handleBulletRebound(obj, body)) {
-        obj.destroy();
+        this.releaseBullet(obj);
       }
     });
   }
@@ -184,31 +193,27 @@ export class GameScene extends Phaser.Scene {
     const angleToTarget = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
     pattern.angles.forEach(angle => {
       const finalAngle = angleToTarget + Phaser.Math.DEG_TO_RAD * angle;
-      const bullet = this.physics.add.sprite(this.player.x, this.player.y - 30, 'bullet');
-      bullet.body.setAllowGravity(false);
-      bullet.setDepth(40);
-      bullet.birth = this.time.now;
-      bullet.body.setCollideWorldBounds(true);
-      bullet.body.onWorldBounds = true;
+      const bullet = this.acquireBullet('bullet', this.player.x, this.player.y - 30);
+      if (!bullet) return;
+      bullet.setDisplaySize(10, 32);
+      bullet.setSize(10, 32);
       const speed = 900;
       this.physics.velocityFromRotation(finalAngle, speed, bullet.body.velocity);
       bullet.rotation = finalAngle + Math.PI / 2;
       this.skillSystem.configureBullet(bullet, damagePerShot);
-      this.playerBullets.add(bullet);
     });
     this.audio.playShoot();
   }
 
   spawnSplitBullet(x, y, angleRad, damage) {
-    const splitCount = this.playerBullets.getChildren().filter(b => b.active && b.getData('isSplitChild')).length;
-    if (splitCount >= 50) return;
-    const bullet = this.physics.add.sprite(x, y, 'splitBullet');
-    bullet.body.setAllowGravity(false);
-    bullet.birth = this.time.now;
-    bullet.setDepth(42);
+    if (this.splitBulletCount >= this.maxSplitBullets) return;
+    const bullet = this.acquireBullet('splitBullet', x, y);
+    if (!bullet) return;
+    this.splitBulletCount += 1;
+    bullet.setDisplaySize(8, 24);
+    bullet.setSize(8, 24);
     this.physics.velocityFromRotation(angleRad, 850, bullet.body.velocity);
     bullet.rotation = angleRad + Math.PI / 2;
-    bullet.setDataEnabled();
     bullet.setData('damage', damage);
     bullet.setData('baseDamage', damage);
     bullet.setData('penetrationLeft', 0);
@@ -216,25 +221,27 @@ export class GameScene extends Phaser.Scene {
     bullet.setData('isSplitChild', true);
     bullet.setData('lastSplitMs', this.time.now);
     bullet.setData('minDamage', damage * 0.5);
-    this.playerBullets.add(bullet);
   }
 
   spawnEnemy(force = false) {
-    if (!force && this.enemies.countActive(true) >= 80) return;
+    if (!force && this.enemies.countActive(true) >= this.maxEnemies) return;
     const x = Phaser.Math.Between(60, 660);
-    const enemy = this.physics.add.sprite(x, -40, 'enemy');
+    const enemy = this.enemies.get(x, -40, 'enemy');
+    if (!enemy) return;
+    enemy.enableBody(true, x, -40, true, true);
     enemy.body.setAllowGravity(false);
-    enemy.setVelocityY(this.sceneVars.enemySpeed);
+    enemy.body.setVelocity(0, this.sceneVars.enemySpeed);
     enemy.hp = this.sceneVars.enemyHP;
     enemy.setDepth(20);
-    this.enemies.add(enemy);
+    enemy.setActive(true);
+    enemy.setVisible(true);
   }
 
   updateEnemies() {
     this.enemies.children.iterate(enemy => {
-      if (!enemy) return;
+      if (!enemy || !enemy.active) return;
       if (enemy.y > 1650) {
-        enemy.destroy();
+        this.releaseEnemy(enemy);
         this.endGame('漏怪');
       }
     });
@@ -242,9 +249,9 @@ export class GameScene extends Phaser.Scene {
 
   updateBullets(time) {
     this.playerBullets.children.iterate(bullet => {
-      if (!bullet) return;
+      if (!bullet || !bullet.active) return;
       if (time - bullet.birth > 2000 || bullet.y < -50 || bullet.y > 1700 || bullet.x < -50 || bullet.x > 770) {
-        bullet.destroy();
+        this.releaseBullet(bullet);
       }
     });
   }
@@ -262,16 +269,18 @@ export class GameScene extends Phaser.Scene {
     const penetrated = this.skillSystem.handlePenetration(bullet);
     if (!penetrated) {
       this.skillSystem.trySplit(bullet);
-      bullet.destroy();
+      this.releaseBullet(bullet);
     }
   }
 
   handleEnemyKilled(enemy) {
     GameState.globals.score += 10;
-    enemy.destroy();
+    const dropX = enemy.x;
+    const dropY = enemy.y;
+    this.releaseEnemy(enemy);
     this.audio.playExplosion();
     this.skillSystem.onEnemyKilled();
-    this.lootSystem.attemptDrop(enemy.x, enemy.y);
+    this.lootSystem.attemptDrop(dropX, dropY);
   }
 
   handleBulletRebound(bullet, body) {
@@ -316,6 +325,44 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.buffText.setText('');
     }
+  }
+
+  acquireBullet(texture, x, y) {
+    const bullet = this.playerBullets.get(x, y, texture);
+    if (!bullet) return null;
+    bullet.enableBody(true, x, y, true, true);
+    bullet.body.stop();
+    bullet.body.setAllowGravity(false);
+    bullet.body.setCollideWorldBounds(true);
+    bullet.body.onWorldBounds = true;
+    bullet.birth = this.time.now;
+    bullet.setActive(true);
+    bullet.setVisible(true);
+    bullet.setDepth(texture === 'splitBullet' ? 42 : 40);
+    bullet.setTexture(texture);
+    bullet.setDataEnabled();
+    bullet.setData('isSplitChild', false);
+    bullet.setData('hitCooldown', 0);
+    return bullet;
+  }
+
+  releaseBullet(bullet) {
+    if (!bullet) return;
+    if (bullet.getData('isSplitChild')) {
+      this.splitBulletCount = Math.max(0, this.splitBulletCount - 1);
+    }
+    bullet.body?.stop();
+    bullet.disableBody(true, true);
+    bullet.setActive(false);
+    bullet.setVisible(false);
+  }
+
+  releaseEnemy(enemy) {
+    if (!enemy) return;
+    enemy.body?.stop();
+    enemy.disableBody(true, true);
+    enemy.setActive(false);
+    enemy.setVisible(false);
   }
 
   endGame(reason) {

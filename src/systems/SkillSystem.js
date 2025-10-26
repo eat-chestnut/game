@@ -107,7 +107,8 @@ export class SkillSystem {
       color: ThemeTokens.color.textMuted,
       wordWrap: { width: width - 40 }
     }).setOrigin(0, 0.5);
-    const levelLabel = this.scene.add.text(width / 2 - 20, 0, skillDef ? `Lv.${level}` : '-', {
+    const levelText = skillDef ? `Lv.${level}/${skillDef.maxLevel}` : '-';
+    const levelLabel = this.scene.add.text(width / 2 - 20, 0, levelText, {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '18px',
       color: ThemeTokens.color.accent
@@ -178,18 +179,27 @@ export class SkillSystem {
       scatterTotal = lvl.totalDamageMultiplier;
     }
     const multiLevel = GameState.skillState.multi_shot;
-    const multiTotal = multiLevel > 0 ? Math.pow(1.1, multiLevel) : 1;
-    const jitter = 3;
-    const extraAngles = [];
-    for (let i = 1; i <= multiLevel; i++) {
-      const angle = i * jitter;
-      extraAngles.push(angle);
-      extraAngles.push(-angle);
+    const multiData = this.getSkillDef('multi_shot');
+    const jitter = multiData?.perLevel?.angleJitterDeg ?? 3;
+    const scatterJitter = scatterLevel > 0
+      ? scatterData?.interaction?.multiShotAngleMicroSplitDeg ?? jitter
+      : jitter;
+    let patternAngles = [...baseAngles];
+    if (multiLevel > 0) {
+      patternAngles = [];
+      baseAngles.forEach(base => {
+        patternAngles.push(base);
+        for (let i = 1; i <= multiLevel; i++) {
+          const offset = scatterJitter * i;
+          patternAngles.push(base + offset, base - offset);
+        }
+      });
     }
-    const finalAngles = [...new Set([...baseAngles, ...extraAngles])].sort((a, b) => a - b);
+    const dedupAngles = [...new Set(patternAngles.map(val => Number(val.toFixed(2))))].sort((a, b) => a - b);
+    const multiTotal = multiLevel > 0 ? Math.pow(1.1, multiLevel) : 1;
     const totalMultiplier = Math.max(scatterTotal, multiTotal, 1);
     GameState.globals.baseShotPattern = {
-      angles: finalAngles.length ? finalAngles : [0],
+      angles: dedupAngles.length ? dedupAngles : [0],
       totalMultiplier
     };
   }

@@ -1,4 +1,5 @@
 import { GameState } from '../state/GameState.js';
+import { SettingsState } from '../state/SettingsState.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -23,6 +24,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    SettingsState.load();
     this.generateTextures();
     const config = this.cache.json.get('skillConfig');
     GameState.setConfig(config);

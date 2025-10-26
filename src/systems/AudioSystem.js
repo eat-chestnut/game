@@ -1,3 +1,5 @@
+import { SettingsState } from '../state/SettingsState.js';
+
 export class AudioSystem {
   constructor(scene) {
     this.scene = scene;
@@ -16,17 +18,23 @@ export class AudioSystem {
     this.masterGain.gain.value = 0.8;
     this.masterGain.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.6;
+    this.musicGain.gain.value = SettingsState.values.musicVolume;
     this.musicGain.connect(this.masterGain);
     this.sfxGain = this.ctx.createGain();
-    this.sfxGain.gain.value = 0.8;
+    this.sfxGain.gain.value = SettingsState.values.sfxVolume;
     this.sfxGain.connect(this.masterGain);
+  }
+
+  applySettings() {
+    if (!this.ctx) return;
+    if (this.musicGain) this.musicGain.gain.value = SettingsState.values.musicVolume;
+    if (this.sfxGain) this.sfxGain.gain.value = SettingsState.values.sfxVolume;
   }
 
   startBgm() {
     this.ensureContext();
+    this.applySettings();
     this.stopBgm();
-     this.musicGain.gain.value = 0.6;
     const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) {
@@ -47,7 +55,7 @@ export class AudioSystem {
       this.bgmSource.disconnect();
       this.bgmSource = null;
     }
-    if (this.musicGain) this.musicGain.gain.value = 0;
+    if (this.musicGain) this.musicGain.gain.value = SettingsState.values.musicVolume;
   }
 
   fadeOutBgm() {
@@ -65,16 +73,19 @@ export class AudioSystem {
 
   playShoot() {
     this.ensureContext();
+    this.applySettings();
     this.triggerTone(620, 80);
   }
 
   playExplosion() {
     this.ensureContext();
+    this.applySettings();
     this.triggerNoise(0.15);
   }
 
   playPickup() {
     this.ensureContext();
+    this.applySettings();
     this.triggerTone(880, 120, 0.5);
   }
 

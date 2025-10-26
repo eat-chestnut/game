@@ -1,6 +1,7 @@
 import { ThemeTokens, themeColor } from '../theme.js';
 import { UIFactory } from '../ui/UIFactory.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
+import { SettingsPanel } from '../ui/SettingsPanel.js';
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -12,6 +13,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.buildBackground();
     this.uiFactory = new UIFactory(this);
     this.buildMenu();
+    this.settingsPanel = new SettingsPanel(this, this.audio);
   }
 
   buildBackground() {
@@ -37,7 +39,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     const buttons = [
       { label: '开始游戏', action: () => this.startGame(), variant: 'primary' },
-      { label: '设置', action: () => this.showToast('设置暂未开放'), variant: 'accent' },
+      { label: '设置', action: () => this.openSettings(), variant: 'accent' },
       { label: '商店', action: () => this.showToast('商店占位'), variant: 'primary' },
       { label: '退出', action: () => window.close(), variant: 'accent' }
     ];
@@ -64,5 +66,9 @@ export class MainMenuScene extends Phaser.Scene {
 
   startGame() {
     this.scene.start('Game');
+  }
+
+  openSettings() {
+    this.settingsPanel?.open();
   }
 }
