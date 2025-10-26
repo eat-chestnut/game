@@ -1,0 +1,109 @@
+export class AudioSystem {
+  constructor(scene) {
+    this.scene = scene;
+    this.ctx = null;
+    this.masterGain = null;
+    this.musicGain = null;
+    this.sfxGain = null;
+    this.bgmSource = null;
+  }
+
+  ensureContext() {
+    if (this.ctx) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new Ctx();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.8;
+    this.masterGain.connect(this.ctx.destination);
+    this.musicGain = this.ctx.createGain();
+    this.musicGain.gain.value = 0.6;
+    this.musicGain.connect(this.masterGain);
+    this.sfxGain = this.ctx.createGain();
+    this.sfxGain.gain.value = 0.8;
+    this.sfxGain.connect(this.masterGain);
+  }
+
+  startBgm() {
+    this.ensureContext();
+    this.stopBgm();
+     this.musicGain.gain.value = 0.6;
+    const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 2, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / this.ctx.sampleRate;
+      data[i] = Math.sin(2 * Math.PI * 110 * t) * 0.2 + Math.sin(2 * Math.PI * 220 * t) * 0.1;
+    }
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(this.musicGain);
+    source.start(0);
+    this.bgmSource = source;
+  }
+
+  stopBgm() {
+    if (this.bgmSource) {
+      this.bgmSource.stop();
+      this.bgmSource.disconnect();
+      this.bgmSource = null;
+    }
+    if (this.musicGain) this.musicGain.gain.value = 0;
+  }
+
+  fadeOutBgm() {
+    if (!this.musicGain) return;
+    this.scene.tweens.addCounter({
+      from: this.musicGain.gain.value,
+      to: 0,
+      duration: 800,
+      onUpdate: tween => {
+        this.musicGain.gain.value = tween.getValue();
+      },
+      onComplete: () => this.stopBgm()
+    });
+  }
+
+  playShoot() {
+    this.ensureContext();
+    this.triggerTone(620, 80);
+  }
+
+  playExplosion() {
+    this.ensureContext();
+    this.triggerNoise(0.15);
+  }
+
+  playPickup() {
+    this.ensureContext();
+    this.triggerTone(880, 120, 0.5);
+  }
+
+  triggerTone(freq, durationMs, gainScale = 1) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.frequency.value = freq;
+    osc.type = 'triangle';
+    gain.gain.value = 0.25 * gainScale;
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + durationMs / 1000);
+    osc.stop(this.ctx.currentTime + durationMs / 1000);
+  }
+
+  triggerNoise(durationSec) {
+    const bufferSize = this.ctx.sampleRate * durationSec;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-3 * i / bufferSize);
+    }
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.4;
+    source.connect(gain);
+    gain.connect(this.sfxGain);
+    source.start();
+  }
+}

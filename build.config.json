@@ -1,0 +1,15 @@
+{
+  "name": "AutoAimWaves",
+  "platform": "web",
+  "resolution": {"width": 720, "height": 1600, "orientation": "portrait"},
+  "targetFps": 60,
+  "pixelPerfect": true,
+  "entry": "index.html",
+  "description": "Vertical fixed-point shooter with auto aim, skills, waves, loot, pause, QA tools.",
+  "uiTheme": "./src/theme.js",
+  "assets": ["./libs/phaser.min.js", "./skill_config.json"],
+  "build": {
+    "serve": "python3 -m http.server 4173",
+    "bundle": "npx parcel build index.html --dist-dir dist"
+  }
+}
