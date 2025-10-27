@@ -22,6 +22,9 @@ export class WaveSystem {
     this.scene.resetSpawnTimer();
     this.scene.updateWaveHud();
     
+    // v5: 通知 EliteSystem 波次推进
+    this.scene.eliteSystem?.onWaveAdvance();
+    
     // Boss 波次判定
     if (this.scene.bossSystem?.shouldSpawnBoss(GameState.globals.wave)) {
       this.toast?.show(`第 ${GameState.globals.wave} 波 - BOSS 来袭！`, 'danger', 3000);

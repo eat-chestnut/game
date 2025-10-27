@@ -230,6 +230,7 @@ export class GameScene extends Phaser.Scene {
     this.droneSystem.update(delta);
     this.aoeSystem.update(delta);
     this.bossSystem.update(delta);
+    this.eliteSystem.update(delta); // v5: Healer 精英治疗
     this.updateHud();
     this.qaConsole.updateMetrics(delta);
   }

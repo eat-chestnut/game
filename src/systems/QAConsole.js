@@ -17,34 +17,43 @@ export class QAConsole {
   }
 
   build() {
-    const bg = this.scene.add.rectangle(0, 0, 220, 240, 0x000000, 0.4);
+    const bg = this.scene.add.rectangle(0, 0, 220, 300, 0x000000, 0.4);
     bg.setOrigin(0.5);
     bg.setStrokeStyle(1, themeColor(ThemeTokens.color.primary), 0.4);
-    const btnSpawn = this.uiFactory.createButton('Spawn50', { width: 180, height: 36, variant: 'primary' });
-    btnSpawn.setPosition(0, -100);
+    const btnSpawn = this.uiFactory.createButton('Spawn50', { width: 180, height: 32, variant: 'primary' });
+    btnSpawn.setPosition(0, -130);
     btnSpawn.on('pointerup', () => this.spawn50());
-    const btnLevel = this.uiFactory.createButton('Level10', { width: 180, height: 36, variant: 'accent' });
-    btnLevel.setPosition(0, -58);
+    const btnLevel = this.uiFactory.createButton('Level10', { width: 180, height: 32, variant: 'accent' });
+    btnLevel.setPosition(0, -92);
     btnLevel.on('pointerup', () => this.levelTo10());
-    const btnSpread = this.uiFactory.createButton('SpreadTest', { width: 180, height: 36, variant: 'primary' });
-    btnSpread.setPosition(0, -16);
+    const btnSpread = this.uiFactory.createButton('SpreadTest', { width: 180, height: 32, variant: 'primary' });
+    btnSpread.setPosition(0, -54);
     btnSpread.on('pointerup', () => this.spreadTest());
-    const btnStress = this.uiFactory.createButton('Stress3x', { width: 88, height: 32, variant: 'accent' });
-    btnStress.setPosition(-60, 28);
+    const btnStress = this.uiFactory.createButton('Stress3x', { width: 88, height: 28, variant: 'accent' });
+    btnStress.setPosition(-60, -18);
     btnStress.on('pointerup', () => this.stressTest());
-    const btnTouch = this.uiFactory.createButton('TouchTest', { width: 88, height: 32, variant: 'primary' });
-    btnTouch.setPosition(40, 28);
+    const btnTouch = this.uiFactory.createButton('TouchTest', { width: 88, height: 28, variant: 'primary' });
+    btnTouch.setPosition(40, -18);
     btnTouch.on('pointerup', () => this.touchTest());
-    const btnObserve = this.uiFactory.createButton('Observe', { width: 180, height: 32, variant: 'primary' });
-    btnObserve.setPosition(0, 68);
+    const btnObserve = this.uiFactory.createButton('Observe', { width: 180, height: 28, variant: 'primary' });
+    btnObserve.setPosition(0, 18);
     btnObserve.on('pointerup', () => this.toggleObservation());
-    this.metricsText = this.scene.add.text(0, 140, '', {
+    // v5: 无人机 AI 切换
+    const btnDroneAI = this.uiFactory.createButton('DroneAI', { width: 88, height: 28, variant: 'accent' });
+    btnDroneAI.setPosition(-60, 52);
+    btnDroneAI.on('pointerup', () => this.toggleDroneAI());
+    // v5: RNG 重放
+    const btnRNGReplay = this.uiFactory.createButton('RNG', { width: 88, height: 28, variant: 'primary' });
+    btnRNGReplay.setPosition(40, 52);
+    btnRNGReplay.on('pointerup', () => this.rngReplay());
+    
+    this.metricsText = this.scene.add.text(0, 165, '', {
       fontFamily: ThemeTokens.typography.fontFamily,
-      fontSize: '13px',
+      fontSize: '12px',
       color: ThemeTokens.color.textMuted,
       align: 'center'
     }).setOrigin(0.5);
-    this.container.add([bg, btnSpawn, btnLevel, btnSpread, btnStress, btnTouch, btnObserve, this.metricsText]);
+    this.container.add([bg, btnSpawn, btnLevel, btnSpread, btnStress, btnTouch, btnObserve, btnDroneAI, btnRNGReplay, this.metricsText]);
   }
 
   spawn50() {
@@ -175,5 +184,59 @@ export class QAConsole {
       Math.seedrandom(seed);
       console.log(`[QA] RNG seed set to: ${seed}`);
     }
+  }
+  
+  toggleDroneAI() {
+    // v5: 切换无人机 AI 模式
+    const droneSystem = this.scene.droneSystem;
+    if (!droneSystem) return;
+    
+    const newMode = droneSystem.aiMode === 'autoAim' ? 'fixedOrbit' : 'autoAim';
+    droneSystem.setAIMode(newMode);
+    const modeName = newMode === 'autoAim' ? '自动瞪准' : '环绕射击';
+    this.scene.toastManager?.show(`无人机 AI: ${modeName}`, 'info', 2000);
+    console.log(`[QA] Drone AI switched to: ${newMode}`);
+  }
+  
+  rngReplay() {
+    // v5: RNG 种子重放（简化实现：记录当前数据）
+    const snapshot = {
+      seed: Date.now(),
+      duration: 60000,
+      startTime: this.scene.time.now,
+      initialState: {
+        score: GameState.globals.score,
+        wave: GameState.globals.wave,
+        kills: GameState.stats.totalKills
+      }
+    };
+    
+    console.log('[QA] RNG Replay started:', snapshot);
+    this.scene.toastManager?.show('RNG 重放开始（60s）', 'info', 2000);
+    
+    // 60s 后输出结果
+    this.scene.time.delayedCall(60000, () => {
+      const endState = {
+        score: GameState.globals.score,
+        wave: GameState.globals.wave,
+        kills: GameState.stats.totalKills
+      };
+      const result = {
+        seed: snapshot.seed,
+        duration: 60000,
+        delta: {
+          score: endState.score - snapshot.initialState.score,
+          wave: endState.wave - snapshot.initialState.wave,
+          kills: endState.kills - snapshot.initialState.kills
+        },
+        fps: {
+          avg: Math.round(1000 / (this.lastDelta || 16)),
+          p50: this.getFpsPercentile(0.5),
+          p95: this.getFpsPercentile(0.95)
+        }
+      };
+      console.log('[QA] RNG Replay finished:', result);
+      this.scene.toastManager?.show(`RNG 重放完成: +${result.delta.kills} 击杀`, 'success', 3000);
+    });
   }
 }

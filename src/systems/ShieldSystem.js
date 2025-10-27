@@ -11,6 +11,8 @@ export class ShieldSystem {
     this.timer = 0;
     this.icons = [];
     this.container = scene.add.container(360, 1350).setDepth(90);
+    this.invulnerable = false; // v5: 无敌帧
+    this.invulnerableEndTime = 0;
   }
 
   setLevel(level) {
@@ -24,6 +26,18 @@ export class ShieldSystem {
   }
 
   update(delta) {
+    // v5: 检查无敌帧
+    if (this.invulnerable) {
+      const now = this.scene.time.now;
+      if (now >= this.invulnerableEndTime) {
+        this.invulnerable = false;
+        // 恢复玩家颜色
+        if (this.scene.player) {
+          this.scene.player.clearTint();
+        }
+      }
+    }
+    
     if (!this.level || this.layers >= this.maxLayers) return;
     this.timer += delta;
     if (this.timer >= this.rechargeSec * 1000) {
@@ -34,9 +48,24 @@ export class ShieldSystem {
   }
 
   absorbHit() {
+    // v5: 无敌帧期间无法受伤
+    if (this.invulnerable) return true;
+    
     if (this.layers <= 0) return false;
     this.layers -= 1;
     this.flashIcons(true);
+    
+    // v5: 护盾被击穿时触发 0.5s 无敌帧
+    if (this.layers === 0) {
+      this.invulnerable = true;
+      this.invulnerableEndTime = this.scene.time.now + 500;
+      // 闪烁提示
+      if (this.scene.player) {
+        this.scene.player.setTint(0xffff00);
+      }
+      this.scene.toastManager?.show('护盾被击穿！短暂无敌！', 'warning', 1000);
+    }
+    
     return true;
   }
 

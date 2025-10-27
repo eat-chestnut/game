@@ -7,12 +7,20 @@ export class DroneSystem {
     this.level = 0;
     this.drones = [];
     this.bullets = scene.physics.add.group();
+    this.aiMode = 'autoAim'; // v5: 'autoAim' | 'fixedOrbit'
     scene.physics.add.overlap(this.bullets, scene.enemies, (bullet, enemy) => {
       if (!bullet.active || !enemy.active) return;
       enemy.hp -= bullet.getData('damage');
       if (enemy.hp <= 0) scene.handleEnemyKilled(enemy);
       bullet.destroy();
     });
+  }
+  
+  setAIMode(mode) {
+    // v5: 切换 AI 模式
+    if (mode === 'autoAim' || mode === 'fixedOrbit') {
+      this.aiMode = mode;
+    }
   }
 
   setLevel(level) {
@@ -48,21 +56,31 @@ export class DroneSystem {
       drone.cooldown -= delta;
       if (drone.cooldown <= 0) {
         drone.cooldown = drone.interval;
-        this.fire(drone.sprite);
+        this.fire(drone.sprite, drone.angle); // 传递角度
       }
     });
+    // v5: 无人机子弹寿命 ≤1.2s
     this.bullets.children.iterate(bullet => {
       if (!bullet || !bullet.active) return;
-      if (this.scene.time.now - bullet.birth > 2000) {
+      if (this.scene.time.now - bullet.birth > 1200) {
         bullet.destroy();
       }
     });
   }
 
-  fire(originSprite) {
-    const target = this.scene.autoAim?.getTarget();
-    if (!target) return;
-    const angle = Phaser.Math.Angle.Between(originSprite.x, originSprite.y, target.x, target.y);
+  fire(originSprite, droneAngle) {
+    let angle;
+    
+    if (this.aiMode === 'autoAim') {
+      // 自动瞪准最近敌人
+      const target = this.scene.autoAim?.getTarget();
+      if (!target) return;
+      angle = Phaser.Math.Angle.Between(originSprite.x, originSprite.y, target.x, target.y);
+    } else {
+      // 固定环绕射击（向外辐射）
+      angle = droneAngle;
+    }
+    
     const bullet = this.scene.physics.add.sprite(originSprite.x, originSprite.y, 'splitBullet');
     bullet.birth = this.scene.time.now;
     bullet.setDepth(71);

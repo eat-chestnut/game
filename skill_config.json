@@ -1,5 +1,5 @@
 {
-  "version": "v4",
+  "version": "v5",
   "balance": {
     "baseDamage": 10,
     "fireRate": 2.0,
@@ -27,7 +27,10 @@
     "ringCooldownMs": 4500,
     "ringBulletSpeed": 260,
     "guaranteedDrop": true,
-    "aoeResistScale": 0.75
+    "aoeResistScale": 0.75,
+    "phaseThresholds": [0.7, 0.4],
+    "chestDrop": "purple",
+    "chestChoice": 2
   },
   "elites": {
     "maxAffixes": 2,
@@ -35,7 +38,8 @@
       {"id": "fast", "name": "疾速", "weight": 1, "speedMultiplier": 1.25},
       {"id": "thick", "name": "厚甲", "weight": 1, "hpMultiplier": 1.3},
       {"id": "splitter", "name": "分裂", "weight": 0.6, "childCount": 2},
-      {"id": "resistant", "name": "抗性", "weight": 0.8, "damageScale": 0.8}
+      {"id": "resistant", "name": "抗性", "weight": 0.8, "damageScale": 0.8},
+      {"id": "healer", "name": "治疗", "weight": 0.7, "radius": 160, "heal": 8, "cd": 5, "capPerWave": 3}
     ]
   },
   "settings": {

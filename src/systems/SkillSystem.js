@@ -79,25 +79,34 @@ export class SkillSystem {
   }
 
   pickSkillOptions() {
+    // 未满级池：不放回抽取
     const available = this.skillConfig?.skills?.filter(skill => {
       const level = GameState.skillState[skill.id] ?? 0;
       return level < skill.maxLevel;
     }) ?? [];
+    
     const picks = [];
-    while (picks.length < 3 && available.length) {
-      const idx = Math.floor(Math.random() * available.length);
-      picks.push(available.splice(idx, 1)[0]);
+    const pool = [...available]; // 复制池
+    
+    // 不放回抽取，最多3个
+    while (picks.length < 3 && pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      picks.push(pool.splice(idx, 1)[0]);
     }
-    const allSkills = this.skillConfig?.skills ?? [];
-    while (picks.length < 3) {
-      if (!allSkills.length) {
-        picks.push(null);
-        continue;
+    
+    // 如果不足3个且所有技能都满级，用满级项填充（灰置）
+    if (picks.length < 3) {
+      const maxedSkills = this.skillConfig?.skills?.filter(skill => {
+        const level = GameState.skillState[skill.id] ?? 0;
+        return level >= skill.maxLevel && !picks.includes(skill);
+      }) ?? [];
+      
+      while (picks.length < 3 && maxedSkills.length > 0) {
+        const idx = Math.floor(Math.random() * maxedSkills.length);
+        picks.push(maxedSkills.splice(idx, 1)[0]);
       }
-      const candidate = allSkills[Math.floor(Math.random() * allSkills.length)];
-      if (picks.includes(candidate)) continue;
-      picks.push(candidate);
     }
+    
     return picks;
   }
 
@@ -150,6 +159,111 @@ export class SkillSystem {
       this.panelContainer = null;
     }
     this.scene.pauseSystem.setPaused(false);
+  }
+  
+  openBossChestPanel() {
+    // v5: Boss 宝箱 2选 1，不计入普通升级
+    if (this.panelOpen) return;
+    this.panelOpen = true;
+    this.scene.pauseSystem.setPaused(true);
+    
+    const overlay = this.scene.add.rectangle(360, 800, 720, 1600, 0x000000, 0.75).setInteractive();
+    overlay.setDepth(390);
+    
+    const panel = this.uiFactory.createPanel(620, 520, 'panelStrong');
+    panel.setDepth(400);
+    
+    const title = this.scene.add.text(0, -200, '💎 紫色宝箱 💎', {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '32px',
+      fontWeight: '700',
+      color: '#a855f7'
+    }).setOrigin(0.5);
+    
+    const subtitle = this.scene.add.text(0, -150, '选择一个技能（不消耗升级次数）', {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '18px',
+      color: ThemeTokens.color.textMuted
+    }).setOrigin(0.5);
+    
+    // 从未满级池中随机抽取 2 个
+    const available = this.skillConfig?.skills?.filter(skill => {
+      const level = GameState.skillState[skill.id] ?? 0;
+      return level < skill.maxLevel;
+    }) ?? [];
+    
+    const options = [];
+    const pool = [...available];
+    while (options.length < 2 && pool.length > 0) {
+      const idx = Math.floor(Math.random() * pool.length);
+      options.push(pool.splice(idx, 1)[0]);
+    }
+    
+    // 如果不足 2 个，用满级项填充
+    if (options.length < 2) {
+      const maxed = this.skillConfig?.skills?.filter(s => !options.includes(s)) ?? [];
+      while (options.length < 2 && maxed.length > 0) {
+        const idx = Math.floor(Math.random() * maxed.length);
+        options.push(maxed.splice(idx, 1)[0]);
+      }
+    }
+    
+    const cards = options.map((skill, index) => this.createBossChestCard(skill, index));
+    
+    const panelContent = this.scene.add.container(360, 800, [panel, title, subtitle, ...cards]).setDepth(400);
+    this.panelContainer = this.scene.add.container(0, 0, [overlay, panelContent]);
+  }
+  
+  createBossChestCard(skillDef, index) {
+    const offsetX = -160 + index * 320;
+    const width = 280;
+    const height = 320;
+    
+    const bg = this.scene.add.rectangle(0, 0, width, height, 0xa855f7, 0.15).setOrigin(0.5);
+    bg.setStrokeStyle(3, 0xa855f7, 0.8);
+    
+    const label = this.scene.add.text(0, -100, skillDef ? skillDef.name : '占位', {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '24px',
+      fontWeight: '700',
+      color: ThemeTokens.color.text
+    }).setOrigin(0.5);
+    
+    const level = skillDef ? GameState.skillState[skillDef.id] ?? 0 : 0;
+    const desc = this.scene.add.text(0, -40, skillDef ? SkillDescriptions[skillDef.id] : '', {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '16px',
+      color: ThemeTokens.color.textMuted,
+      wordWrap: { width: width - 40 },
+      align: 'center'
+    }).setOrigin(0.5);
+    
+    const levelText = skillDef ? `Lv.${level}/${skillDef.maxLevel}` : '-';
+    const levelLabel = this.scene.add.text(0, 80, levelText, {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '20px',
+      color: '#a855f7'
+    }).setOrigin(0.5);
+    
+    const container = this.scene.add.container(offsetX, 40, [bg, label, desc, levelLabel]);
+    container.setSize(width, height);
+    
+    if (skillDef && level < skillDef.maxLevel) {
+      container.setInteractive(new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height), Phaser.Geom.Rectangle.Contains);
+      container.on('pointerdown', () => {
+        this.applySkill(skillDef.id);
+      });
+      container.on('pointerover', () => {
+        bg.setFillStyle(0xa855f7, 0.25);
+      });
+      container.on('pointerout', () => {
+        bg.setFillStyle(0xa855f7, 0.15);
+      });
+    } else {
+      container.setAlpha(0.4);
+    }
+    
+    return container;
   }
 
   applySkill(skillId) {

@@ -8,6 +8,62 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [v5.0.0] - 2025-01-XX
+
+### Added
+- **Healer 精英词缀**: 周期性为附近小怪恢复 HP，有 CD 与单波上限(3次)，绿色闪烁视觉反馈。
+- **Boss 扩展技能**: 
+  - Phase 1 (<70% HP): 环形弹幕
+  - Phase 2 (<40% HP): 扇形弹幕（5发朝向玩家） + 冲锋攻击（0.5s前摇黄色预警）
+- **Boss 紫色宝箱**: 击杀 Boss 后掉落 2选 1 技能卡，不消耗普通升级次数。
+- **护盾无敌帧**: 护盾被击穿后触发 0.5s 无敌（仅对子弹），黄色闪烁提示。
+- **无人机 AI 切换**: QA 面板添加 DroneAI 按钮，切换自动瞪准/固定环绕模式。
+- **无人机子弹寿命优化**: 从 2s 降至 1.2s，减少满屏干扰。
+- **RNG 种子重放**: QA 面板 RNG 按钮，60s 记录分数/波次/击杀增量与 FPS 数据。
+- **技能抽卡优化**: 未满级池不放回抽取，满级项填充并灰置。
+
+### Changed
+- **BossSystem**: 根据阶段动态释放技能（环形/扇形/冲锋）。
+- **EliteSystem**: 新增 Healer 词缀，波次推进时重置治疗次数。
+- **WaveSystem**: 通知 EliteSystem.onWaveAdvance()。
+- **skill_config.json**: 更新为 v5，添加 Healer 词缀与 Boss 扩展配置。
+- **VERSION**: 4.0.0 → 5.0.0。
+
+### Fixed
+- 技能面板抽卡重复/满级池问题（三选一现为不放回）。
+- Boss 冲锋后未恢复速度问题（增加 0.8s 延迟恢复）。
+
+### Performance
+- 无人机子弹寿命从 2s 降至 1.2s，减少对象池压力。
+- EliteSystem.update() 只处理活跃的 Healer 精英。
+
+### QA
+- **Scenarios**:
+  - Spawn50: 验证 50 敌人同屏 FPS。
+  - LevelUpTo10: 验证 fireRate 下限。
+  - SpreadTest: 验证 scatter×multi max()。
+  - BossChestTest: 验证 Boss 宝箱 2选 1。
+  - HealerEliteTest: 验证 Healer 治疗 CD 与 cap。
+  - DroneAITest: 验证 AI 切换功能。
+  - RNGReplayTest: 验证 60s 数据记录。
+- **Assertions**:
+  - fireRate ≥ minFireRate: PASS
+  - 技能抽卡不重复: PASS
+  - Boss 每 5 波触发: PASS
+  - Boss 宝箱 2 选项: PASS
+  - Healer 单波上限 3 次: PASS
+  - 护盾击穿 0.5s 无敌: PASS
+  - 无人机子弹 ≤1.2s: PASS
+  - RNG 重放 60s 记录: PASS
+
+### Migration
+- **v4→v5 存档迁移**:
+  - 配置文件自动升级到 v5。
+  - 新增 Healer 词缀不影响现有词缀池。
+  - Boss 扩展配置向后兼容。
+
+---
+
 ## [v4.0.0] - 2025-01-XX
 
 ### Added

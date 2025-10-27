@@ -122,7 +122,7 @@ export class BossSystem {
     const lastSkill = this.currentBoss.getData('lastSkillTime') || 0;
     const cooldown = this.config.ringCooldownMs ?? 4500;
     
-    // Phase 1: HP < 70%
+    // Phase 1: HP < 70% - 环形弹幕
     if (hpRatio < 0.7 && !this.bossPhaseTriggered.phase1) {
       this.bossPhaseTriggered.phase1 = true;
       this.scene.toastManager?.show('Boss 进入第二阶段！', 'warning', 2000);
@@ -130,17 +130,28 @@ export class BossSystem {
       this.currentBoss.setData('lastSkillTime', now);
     }
     
-    // Phase 2: HP < 40%
+    // Phase 2: HP < 40% - 扇形弹幕 + 冲锋
     if (hpRatio < 0.4 && !this.bossPhaseTriggered.phase2) {
       this.bossPhaseTriggered.phase2 = true;
       this.scene.toastManager?.show('Boss 进入狂暴阶段！', 'danger', 2000);
-      this.releaseRingBullets();
+      this.releaseFanBullets();
+      this.startCharge();
       this.currentBoss.setData('lastSkillTime', now);
     }
     
-    // 持续释放环形弹幕
+    // 持续释放技能（根据阶段变化）
     if (now - lastSkill >= cooldown) {
-      this.releaseRingBullets();
+      if (hpRatio < 0.4) {
+        // Phase 2: 扇形 + 冲锋
+        if (Math.random() < 0.5) {
+          this.releaseFanBullets();
+        } else {
+          this.startCharge();
+        }
+      } else if (hpRatio < 0.7) {
+        // Phase 1: 环形
+        this.releaseRingBullets();
+      }
       this.currentBoss.setData('lastSkillTime', now);
     }
     
@@ -168,6 +179,62 @@ export class BossSystem {
     }
     
     this.scene.audio?.playShoot();
+  }
+  
+  releaseFanBullets() {
+    // v5: 扇形弹幕 (5发，朝向玩家)
+    if (!this.currentBoss || !this.currentBoss.active) return;
+    const player = this.scene.player;
+    if (!player) return;
+    
+    const angleToPlayer = Phaser.Math.Angle.Between(
+      this.currentBoss.x, this.currentBoss.y,
+      player.x, player.y
+    );
+    
+    const fanCount = 5;
+    const fanSpread = Math.PI / 4; // 45° 扩展
+    
+    for (let i = 0; i < fanCount; i++) {
+      const offset = (i - (fanCount - 1) / 2) * (fanSpread / (fanCount - 1));
+      const angle = angleToPlayer + offset;
+      this.spawnBossBullet(this.currentBoss.x, this.currentBoss.y, angle, 300);
+    }
+    
+    this.scene.audio?.playShoot();
+  }
+  
+  startCharge() {
+    // v5: 冲锋攻击（有前摇）
+    if (!this.currentBoss || !this.currentBoss.active) return;
+    const player = this.scene.player;
+    if (!player) return;
+    
+    // 前摇提示（0.5s）
+    this.currentBoss.setTint(0xffff00); // 黄色预警
+    this.scene.toastManager?.show('Boss 准备冲锋！', 'warning', 1000);
+    
+    this.scene.time.delayedCall(500, () => {
+      if (!this.currentBoss || !this.currentBoss.active) return;
+      
+      // 冲刺
+      const angleToPlayer = Phaser.Math.Angle.Between(
+        this.currentBoss.x, this.currentBoss.y,
+        player.x, player.y
+      );
+      
+      this.currentBoss.setVelocity(
+        Math.cos(angleToPlayer) * 400,
+        Math.sin(angleToPlayer) * 400
+      );
+      
+      // 0.8s 后恢夏
+      this.scene.time.delayedCall(800, () => {
+        if (!this.currentBoss || !this.currentBoss.active) return;
+        this.currentBoss.setVelocity(0, this.config.speed ?? 80);
+        this.currentBoss.setTint(0xff5c7a); // 恢复红色
+      });
+    });
   }
 
   spawnBossBullet(x, y, angleRad, speed) {
@@ -207,7 +274,12 @@ export class BossSystem {
     GameState.globals.coins += 50;
     GameState.globals.score += 500;
     
-    this.scene.toastManager?.show('Boss 已击败！+500 分 +50 金币', 'success', 3000);
+    // v5: 紫色宝箱掉落（2选 1 技能卡）
+    this.scene.time.delayedCall(500, () => {
+      this.scene.skillSystem?.openBossChestPanel();
+    });
+    
+    this.scene.toastManager?.show('Boss 已击败！紫色宝箱掉落！', 'success', 3000);
   }
 
   reset() {
