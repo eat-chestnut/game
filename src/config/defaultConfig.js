@@ -1,0 +1,71 @@
+export const DefaultSkillConfig = {
+  version: 'v4',
+  balance: {
+    baseDamage: 10,
+    fireRate: 2.0,
+    minFireRate: 0.6,
+    maxPlayerLevel: 12,
+    leveling: { baseKillsToLevel: 15, growthFactor: 1.22 },
+    waves: {
+      intervalSeconds: 30,
+      enemySpeedMulPerWave: 1.04,
+      enemyHpMulPerWave: 1.06,
+      spawnRateMulPerWave: 0.97,
+      spawnRateFloor: 0.3
+    },
+    drops: {
+      energyOrbChance: 0.15,
+      hasteBuffFireRateMul: 0.75,
+      hasteBuffDurationSec: 8
+    }
+  },
+  boss: {
+    interval: 5,
+    hpMultiplier: 12,
+    speed: 80,
+    ringBulletCount: 14,
+    ringCooldownMs: 4500,
+    ringBulletSpeed: 260,
+    guaranteedDrop: true,
+    aoeResistScale: 0.75
+  },
+  elites: {
+    maxAffixes: 2,
+    affixes: [
+      { id: 'fast', name: '疾速', weight: 1, speedMultiplier: 1.25 },
+      { id: 'thick', name: '厚甲', weight: 1, hpMultiplier: 1.3 },
+      { id: 'splitter', name: '分裂', weight: 0.6, childCount: 2 },
+      { id: 'resistant', name: '抗性', weight: 0.8, damageScale: 0.8 }
+    ]
+  },
+  settings: {
+    lowPerfMode: { particleScale: 0.5, bulletSpeedScale: 0.85 },
+    tutorial: {
+      steps: [
+        { title: '自动射击', body: '角色会自动瞄准最近敌人，无需移动' },
+        { title: '升级与技能', body: '击杀积累经验，弹出 3 选 1 技能面板' },
+        { title: '掉落 Buff', body: '拾取能量球触发短暂攻速提升' },
+        { title: '暂停与设置', body: '点击右下暂停或打开设置调整语言/音量' }
+      ]
+    }
+  },
+  i18n: {
+    zh: { skills: { defense_shield: '护盾', summon_drone: '无人机', aoe_blast: '范围爆破' } },
+    en: { skills: { defense_shield: 'Shield', summon_drone: 'Drone', aoe_blast: 'AOE Blast' } }
+  },
+  skills: [
+    { id: 'atk_speed', name: '攻速提升', type: 'bullet', maxLevel: 4, stacking: 'interval_multiplicative', perLevel: { fireRateMultiplier: 0.9 }, constraints: { minFireRate: 0.6 } },
+    { id: 'atk_power', name: '攻击力提升', type: 'bullet', maxLevel: 4, stacking: 'multiplicative', perLevel: { damageMultiplier: 1.08 } },
+    { id: 'multi_shot', name: '连发', type: 'shape', maxLevel: 3, logic: 'per_level_additional_shots', perLevel: { additionalShots: 1, totalDamageMultiplier: 1.1, angleJitterDeg: 3 }, damageDistribution: 'even', interaction: { withScatter: 'do_not_multiply_total;use_higher_total_only' } },
+    { id: 'scatter', name: '散射', type: 'shape', maxLevel: 2, levels: [
+      { shotCount: 3, totalDamageMultiplier: 1.12, anglesDeg: [-10, 0, 10] },
+      { shotCount: 5, totalDamageMultiplier: 1.2, anglesDeg: [-14, -7, 0, 7, 14] }
+    ], interaction: { withMultiShot: 'do_not_multiply_total;use_higher_total_only', multiShotAngleMicroSplitDeg: 2 } },
+    { id: 'split', name: '子弹分裂', type: 'proc', maxLevel: 2, onHit: { childCount: 2, childAngleDeg: 15, childDamageScaleBase: 0.6, inheritsShapeSkills: false, cooldownMsPerBullet: 30 }, appliesMultipliers: ['atk_power'] },
+    { id: 'penetration', name: '穿透', type: 'proc', maxLevel: 3, perLevel: { penetrationLayers: 1 }, decay: { damageMultiplierPerPenetration: 0.9, minDamageScale: 0.5 } },
+    { id: 'rebound', name: '墙面反弹', type: 'shape', maxLevel: 2, perLevel: { rebounds: 1 }, decay: { damageMultiplierPerRebound: 0.85, angleJitterDeg: 4 } },
+    { id: 'defense_shield', name: '护盾', type: 'defense', maxLevel: 3, perLevel: { shieldLayers: 1, rechargeSec: 12 } },
+    { id: 'summon_drone', name: '无人机', type: 'summon', maxLevel: 3, perLevel: { droneCount: [1, 2, 3], fireIntervalSec: [1.2, 0.8, 0.6] }, inherits: { shapeSkills: false, powerMultipliers: true } },
+    { id: 'aoe_blast', name: '范围爆破', type: 'aoe', maxLevel: 2, perLevel: { intervalSec: [8, 8], damageScale: [0.8, 1.2] }, bossScale: 0.75 }
+  ]
+};

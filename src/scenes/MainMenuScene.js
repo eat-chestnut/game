@@ -2,6 +2,10 @@ import { ThemeTokens, themeColor } from '../theme.js';
 import { UIFactory } from '../ui/UIFactory.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
 import { SettingsPanel } from '../ui/SettingsPanel.js';
+import { AchievementPanel } from '../ui/AchievementPanel.js';
+import { ShopPanel } from '../ui/ShopPanel.js';
+import { t } from '../i18n/index.js';
+import { GameState } from '../state/GameState.js';
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -13,7 +17,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.buildBackground();
     this.uiFactory = new UIFactory(this);
     this.buildMenu();
-    this.settingsPanel = new SettingsPanel(this, this.audio);
+    this.settingsPanel = new SettingsPanel(this, this.audio, {
+      onLocaleChange: () => this.refreshTexts(),
+      onLowPowerChange: () => {}
+    });
+    this.achievementPanel = new AchievementPanel(this);
+    this.shopPanel = new ShopPanel(this);
   }
 
   buildBackground() {
@@ -23,25 +32,27 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   buildMenu() {
-    const title = this.add.text(360, 420, 'AutoAim Waves', {
+    const locale = GameState.globals.locale;
+    const title = this.add.text(360, 420, t('title', locale), {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '42px',
       fontWeight: '700',
       color: ThemeTokens.color.text
     }).setOrigin(0.5);
-    const subtitle = this.add.text(360, 480, '竖屏固定点射击
-自动锁敌 · 局内升级 · 波次突围', {
+    const subtitle = this.add.text(360, 480, t('subtitle', locale), {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '20px',
       color: ThemeTokens.color.textMuted,
       align: 'center'
     }).setOrigin(0.5);
+    this.textNodes = { title, subtitle };
 
     const buttons = [
-      { label: '开始游戏', action: () => this.startGame(), variant: 'primary' },
-      { label: '设置', action: () => this.openSettings(), variant: 'accent' },
-      { label: '商店', action: () => this.showToast('商店占位'), variant: 'primary' },
-      { label: '退出', action: () => window.close(), variant: 'accent' }
+      { label: t('start', locale), action: () => this.startGame(), variant: 'primary' },
+      { label: t('settings', locale), action: () => this.openSettings(), variant: 'accent' },
+      { label: t('achievements', locale), action: () => this.openAchievements(), variant: 'primary' },
+      { label: t('shop', locale), action: () => this.openShop(), variant: 'primary' },
+      { label: t('quit', locale), action: () => window.close(), variant: 'accent' }
     ];
 
     buttons.forEach((btn, idx) => {
@@ -70,5 +81,19 @@ export class MainMenuScene extends Phaser.Scene {
 
   openSettings() {
     this.settingsPanel?.open();
+  }
+
+  openAchievements() {
+    this.achievementPanel?.open();
+  }
+  
+  openShop() {
+    this.shopPanel?.open();
+  }
+
+  refreshTexts() {
+    const locale = GameState.globals.locale;
+    if (this.textNodes?.title) this.textNodes.title.setText(t('title', locale));
+    if (this.textNodes?.subtitle) this.textNodes.subtitle.setText(t('subtitle', locale));
   }
 }

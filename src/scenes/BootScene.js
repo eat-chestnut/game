@@ -1,5 +1,7 @@
 import { GameState } from '../state/GameState.js';
 import { SettingsState } from '../state/SettingsState.js';
+import { SaveManager } from '../state/SaveManager.js';
+import { DefaultSkillConfig } from '../config/defaultConfig.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -26,9 +28,43 @@ export class BootScene extends Phaser.Scene {
   create() {
     SettingsState.load();
     this.generateTextures();
-    const config = this.cache.json.get('skillConfig');
+    let config = this.cache.json.get('skillConfig');
+    if (!config || typeof config !== 'object') {
+      console.error('[兼容层] skill_config.json 解析失败，使用默认配置');
+      config = structuredClone(DefaultSkillConfig);
+    } else {
+      config = this.mergeConfig(config);
+    }
     GameState.setConfig(config);
+    const saveData = SaveManager.load(GameState.skillState);
+    GameState.hydrate(saveData);
     this.scene.start('MainMenu');
+  }
+
+  mergeConfig(config) {
+    const merged = structuredClone(DefaultSkillConfig);
+    const deepMerge = (target, source) => {
+      Object.entries(source || {}).forEach(([key, value]) => {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          target[key] = deepMerge({ ...(target[key] || {}) }, value);
+        } else {
+          target[key] = value;
+        }
+      });
+      return target;
+    };
+    deepMerge(merged, config);
+    if (!merged.skills?.length) {
+      merged.skills = DefaultSkillConfig.skills;
+    }
+    ['defense_shield', 'summon_drone', 'aoe_blast'].forEach(id => {
+      if (!merged.skills.some(skill => skill.id === id)) {
+        console.warn(`[兼容层] 未检测到 ${id}，补齐默认技能`); // compatibles
+        const fallback = DefaultSkillConfig.skills.find(s => s.id === id);
+        if (fallback) merged.skills.push(fallback);
+      }
+    });
+    return merged;
   }
 
   generateTextures() {

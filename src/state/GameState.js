@@ -14,7 +14,12 @@ export const GameState = {
     baseKillsToLevel: 15,
     killGrowthFactor: 1.22,
     maxPlayerLevel: 12,
-    baseShotPattern: { angles: [0], totalMultiplier: 1 }
+    baseShotPattern: { angles: [0], totalMultiplier: 1 },
+    locale: 'zh',
+    lowPowerMode: false,
+    highScore: 0,
+    shopDamageMultiplier: 1,
+    shopLootChanceBonus: 0
   },
   skillState: {
     atk_speed: 0,
@@ -30,9 +35,28 @@ export const GameState = {
   },
   hasteBuff: {
     active: false,
-    expiresAt: 0
+    expiresAt: 0,
+    multiplier: 0.75
+  },
+  stats: {
+    totalKills: 0,
+    highestCombo: 0,
+    currentCombo: 0,
+    aoeTriggers: 0,
+    runSeconds: 0
   },
   config: null,
+  hydrate(saveData) {
+    if (!saveData) return;
+    this.globals.coins = saveData.coins ?? this.globals.coins;
+    this.globals.level = saveData.level ?? this.globals.level;
+    this.globals.highScore = saveData.highScore ?? 0;
+    this.globals.locale = saveData.locale ?? 'zh';
+    this.globals.lowPowerMode = saveData.toggles?.lowPowerMode ?? false;
+    Object.keys(this.skillState).forEach(key => {
+      this.skillState[key] = saveData.skillState?.[key] ?? 0;
+    });
+  },
   setConfig(cfg) {
     this.config = cfg;
     if (cfg?.balance) {
@@ -46,25 +70,35 @@ export const GameState = {
       this.globals.nextLevelKills = bal.leveling.baseKillsToLevel;
     }
   },
-  reset() {
+  reset(resetSkills = true) {
     this.globals.score = 0;
     this.globals.wave = 1;
     this.globals.level = 1;
     this.globals.killCount = 0;
-    this.globals.coins = 0;
     this.globals.isPaused = false;
     this.globals.nextLevelKills = this.globals.baseKillsToLevel;
     this.globals.bulletDamageMultiplier = 1;
     this.globals.fireRate = this.config?.balance?.fireRate ?? 2;
-    this.skillState.atk_speed = 0;
-    this.skillState.atk_power = 0;
-    this.skillState.multi_shot = 0;
-    this.skillState.scatter = 0;
-    this.skillState.split = 0;
-    this.skillState.penetration = 0;
-    this.skillState.rebound = 0;
+    // coins 不重置，跨局积累
+    if (resetSkills) {
+      this.skillState.atk_speed = 0;
+      this.skillState.atk_power = 0;
+      this.skillState.multi_shot = 0;
+      this.skillState.scatter = 0;
+      this.skillState.split = 0;
+      this.skillState.penetration = 0;
+      this.skillState.rebound = 0;
+      this.skillState.defense_shield = 0;
+      this.skillState.summon_drone = 0;
+      this.skillState.aoe_blast = 0;
+    }
     this.hasteBuff.active = false;
     this.hasteBuff.expiresAt = 0;
     this.globals.baseShotPattern = { angles: [0], totalMultiplier: 1 };
+    this.stats.totalKills = 0;
+    this.stats.highestCombo = 0;
+    this.stats.currentCombo = 0;
+    this.stats.aoeTriggers = 0;
+    this.stats.runSeconds = 0;
   }
 };

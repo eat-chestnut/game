@@ -9,6 +9,15 @@ import { LootDropSystem } from '../systems/LootDropSystem.js';
 import { PauseSystem } from '../systems/PauseSystem.js';
 import { AudioSystem } from '../systems/AudioSystem.js';
 import { QAConsole } from '../systems/QAConsole.js';
+import { ShieldSystem } from '../systems/ShieldSystem.js';
+import { DroneSystem } from '../systems/DroneSystem.js';
+import { AOESystem } from '../systems/AOESystem.js';
+import { AchievementSystem } from '../systems/AchievementSystem.js';
+import { SaveManager } from '../state/SaveManager.js';
+import { BossSystem } from '../systems/BossSystem.js';
+import { EliteSystem } from '../systems/EliteSystem.js';
+import { TutorialSystem } from '../systems/TutorialSystem.js';
+import { ShopSystem } from '../systems/ShopSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -17,7 +26,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    GameState.reset();
+    GameState.reset(false);
     this.gameOverTriggered = false;
     this.sceneVars = {
       enemySpeed: 150,
@@ -26,6 +35,14 @@ export class GameScene extends Phaser.Scene {
     };
     this.maxSplitBullets = 50;
     this.maxEnemies = 80;
+    this.lowPowerFactor = GameState.globals.lowPowerMode ? 0.5 : 1;
+    this.comboResetMs = 3000;
+    this.comboTimer = 0;
+    
+    // 应用商店加成
+    this.shopSystem = new ShopSystem();
+    this.shopSystem.loadShop();
+    this.shopSystem.applyShopBonuses();
     this.toastManager = new ToastManager(this);
     this.pauseSystem = new PauseSystem(this);
     this.audio = new AudioSystem(this);
@@ -42,9 +59,30 @@ export class GameScene extends Phaser.Scene {
     this.lootSystem = new LootDropSystem(this);
     this.waveSystem = new WaveSystem(this);
     this.qaConsole = new QAConsole(this, this.skillSystem);
+    this.shieldSystem = new ShieldSystem(this, GameState.config);
+    this.droneSystem = new DroneSystem(this, GameState.config);
+    this.aoeSystem = new AOESystem(this, GameState.config);
+    this.achievementSystem = new AchievementSystem(this);
+    this.bossSystem = new BossSystem(this, GameState.config);
+    this.eliteSystem = new EliteSystem(this, GameState.config);
+    this.tutorialSystem = new TutorialSystem(this, GameState.config);
     this.setupSpawner();
     this.setupCollisions();
     this.setupWorldBounds();
+    this.syncExternalSkills();
+    this.game.events.on('hidden', this.handleBlur, this);
+    this.game.events.on('visible', this.handleFocus, this);
+    
+    // 启动教程（如果未完成）
+    if (this.tutorialSystem.shouldShow()) {
+      this.time.delayedCall(500, () => {
+        this.tutorialSystem.start();
+      });
+    }
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off('hidden', this.handleBlur, this);
+      this.game.events.off('visible', this.handleFocus, this);
+    });
   }
 
   buildBackground() {
@@ -72,26 +110,30 @@ export class GameScene extends Phaser.Scene {
   }
 
   buildHUD() {
-    this.createHudPanel(150, 70, 260, 90);
-    this.scoreText = this.add.text(60, 40, 'Score 0', {
+    const margin = this.scale.width <= 360 ? 8 : this.scale.height >= 1800 ? 16 : 12;
+    const leftX = margin + 120;
+    const topY = margin + 40;
+    const rightX = 720 - margin - 120;
+    this.createHudPanel(leftX, topY + 30, 260, 90);
+    this.scoreText = this.add.text(leftX - 90, topY, 'Score 0', {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '26px',
       color: ThemeTokens.color.text
     }).setDepth(6);
-    this.createHudPanel(360, 70, 320, 90);
-    this.levelText = this.add.text(360, 40, 'Lv.1 0/15', {
+    this.createHudPanel(360, topY + 30, 320, 90);
+    this.levelText = this.add.text(360, topY, 'Lv.1 0/15', {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '24px',
       color: ThemeTokens.color.text,
       align: 'center'
     }).setOrigin(0.5, 0).setDepth(6);
-    this.createHudPanel(600, 70, 220, 90);
-    this.waveText = this.add.text(600, 40, 'Wave 1', {
+    this.createHudPanel(rightX, topY + 30, 220, 90);
+    this.waveText = this.add.text(rightX, topY, 'Wave 1', {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '24px',
       color: ThemeTokens.color.text
     }).setOrigin(0.5, 0).setDepth(6);
-    this.buffText = this.add.text(360, 120, '', {
+    this.buffText = this.add.text(360, topY + 80, '', {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '20px',
       color: ThemeTokens.color.accent
@@ -131,6 +173,10 @@ export class GameScene extends Phaser.Scene {
   setupCollisions() {
     this.physics.add.overlap(this.playerBullets, this.enemies, (bullet, enemy) => this.handleBulletHit(bullet, enemy));
     this.physics.add.overlap(this.player, this.enemies, (_player, enemy) => {
+      if (this.shieldSystem?.absorbHit()) {
+        this.releaseEnemy(enemy);
+        return;
+      }
       this.releaseEnemy(enemy);
       this.endGame('碰撞');
     });
@@ -155,12 +201,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    this.bgStars.tilePositionY -= delta * 0.02;
+    this.bgStars.tilePositionY -= delta * 0.02 * this.lowPowerFactor;
     if (GameState.globals.isPaused) {
       this.qaConsole.updateMetrics(delta);
       return;
     }
     const dt = delta / 1000;
+    GameState.stats.runSeconds += dt;
+    if (this.comboTimer > 0) {
+      this.comboTimer -= delta;
+      if (this.comboTimer <= 0) {
+        GameState.stats.currentCombo = 0;
+      }
+    }
     this.autoAim.update(delta);
     this.playerState.fireCooldown -= dt;
     if (this.playerState.fireCooldown <= 0) {
@@ -173,6 +226,10 @@ export class GameScene extends Phaser.Scene {
     this.updateEnemies();
     this.updateBullets(time);
     this.lootSystem.update(time);
+    this.shieldSystem.update(delta);
+    this.droneSystem.update(delta);
+    this.aoeSystem.update(delta);
+    this.bossSystem.update(delta);
     this.updateHud();
     this.qaConsole.updateMetrics(delta);
   }
@@ -187,9 +244,11 @@ export class GameScene extends Phaser.Scene {
 
   fireAtTarget(target) {
     const pattern = this.skillSystem.getShotPattern();
-    const baseDamage = GameState.globals.baseDamage * GameState.globals.bulletDamageMultiplier;
+    const shopMul = GameState.globals.shopDamageMultiplier ?? 1;
+    const baseDamage = GameState.globals.baseDamage * GameState.globals.bulletDamageMultiplier * shopMul;
     const shotCount = pattern.angles.length || 1;
-    const damagePerShot = (baseDamage * pattern.totalMultiplier) / shotCount;
+    const perShotMultiplier = pattern.perShotMultiplier ?? pattern.totalMultiplier / shotCount;
+    const damagePerShot = baseDamage * perShotMultiplier;
     const angleToTarget = Phaser.Math.Angle.Between(this.player.x, this.player.y, target.x, target.y);
     pattern.angles.forEach(angle => {
       const finalAngle = angleToTarget + Phaser.Math.DEG_TO_RAD * angle;
@@ -197,7 +256,7 @@ export class GameScene extends Phaser.Scene {
       if (!bullet) return;
       bullet.setDisplaySize(10, 32);
       bullet.setSize(10, 32);
-      const speed = 900;
+      const speed = GameState.globals.lowPowerMode ? 780 : 900;
       this.physics.velocityFromRotation(finalAngle, speed, bullet.body.velocity);
       bullet.rotation = finalAngle + Math.PI / 2;
       this.skillSystem.configureBullet(bullet, damagePerShot);
@@ -212,7 +271,8 @@ export class GameScene extends Phaser.Scene {
     this.splitBulletCount += 1;
     bullet.setDisplaySize(8, 24);
     bullet.setSize(8, 24);
-    this.physics.velocityFromRotation(angleRad, 850, bullet.body.velocity);
+    const speed = GameState.globals.lowPowerMode ? 700 : 850;
+    this.physics.velocityFromRotation(angleRad, speed, bullet.body.velocity);
     bullet.rotation = angleRad + Math.PI / 2;
     bullet.setData('damage', damage);
     bullet.setData('baseDamage', damage);
@@ -223,26 +283,54 @@ export class GameScene extends Phaser.Scene {
     bullet.setData('minDamage', damage * 0.5);
   }
 
-  spawnEnemy(force = false) {
+  spawnEnemy(force = false, spawnX = null, spawnY = null, hpScale = 1) {
     if (!force && this.enemies.countActive(true) >= this.maxEnemies) return;
-    const x = Phaser.Math.Between(60, 660);
-    const enemy = this.enemies.get(x, -40, 'enemy');
+    const x = spawnX ?? Phaser.Math.Between(60, 660);
+    const y = spawnY ?? -40;
+    const enemy = this.enemies.get(x, y, 'enemy');
     if (!enemy) return;
-    enemy.enableBody(true, x, -40, true, true);
+    enemy.enableBody(true, x, y, true, true);
     enemy.body.setAllowGravity(false);
     enemy.body.setVelocity(0, this.sceneVars.enemySpeed);
-    enemy.hp = this.sceneVars.enemyHP;
+    enemy.hp = this.sceneVars.enemyHP * hpScale;
+    enemy.maxHp = enemy.hp;
     enemy.setDepth(20);
     enemy.setActive(true);
     enemy.setVisible(true);
+    enemy.setTint(0xffffff); // 重置颜色
+    enemy.setScale(1); // 重置缩放
+    enemy.clearData(); // 清理旧标记
+    
+    // 精英生成判定
+    if (!force && this.eliteSystem.shouldSpawnElite()) {
+      this.eliteSystem.applyEliteAffixes(enemy);
+    }
   }
 
   updateEnemies() {
     this.enemies.children.iterate(enemy => {
       if (!enemy || !enemy.active) return;
-      if (enemy.y > 1650) {
+      
+      // Boss 不算漏怪
+      const isBoss = enemy.getData('isBoss');
+      const isBossBullet = enemy.getData('isBossBullet');
+      
+      // Boss 弹幕超界清理
+      if (isBossBullet && (enemy.y > 1700 || enemy.y < -100 || enemy.x < -100 || enemy.x > 820)) {
         this.releaseEnemy(enemy);
-        this.endGame('漏怪');
+        return;
+      }
+      
+      if (enemy.y > 1650) {
+        if (isBoss) {
+          // Boss 离开屏幕也算击败
+          this.releaseEnemy(enemy);
+          this.endGame('Boss 逃脱');
+        } else if (!isBossBullet) {
+          // 普通敌人漏怪
+          this.releaseEnemy(enemy);
+          this.endGame('漏怪');
+        }
       }
     });
   }
@@ -262,7 +350,20 @@ export class GameScene extends Phaser.Scene {
     const cooldown = bullet.getData('hitCooldown') || 0;
     if (now < cooldown) return;
     bullet.setData('hitCooldown', now + 60);
-    enemy.hp -= bullet.getData('damage');
+    
+    // 应用精英抗性
+    let damage = bullet.getData('damage');
+    if (enemy.getData('isElite')) {
+      damage = this.eliteSystem.applyDamageModifier(enemy, damage);
+    }
+    
+    // Boss AOE 额外衰减
+    if (enemy.getData('isBoss') && bullet.getData('isAOE')) {
+      const bossScale = GameState.config?.boss?.aoeResistScale ?? 0.75;
+      damage *= bossScale;
+    }
+    
+    enemy.hp -= damage;
     if (enemy.hp <= 0) {
       this.handleEnemyKilled(enemy);
     }
@@ -274,13 +375,38 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleEnemyKilled(enemy) {
-    GameState.globals.score += 10;
+    const isBoss = enemy.getData('isBoss');
+    const isElite = enemy.getData('isElite');
+    
+    GameState.globals.score += isBoss ? 500 : (isElite ? 50 : 10);
+    GameState.globals.coins += isBoss ? 50 : (isElite ? 10 : 1);
+    GameState.stats.totalKills += 1;
+    GameState.stats.currentCombo += 1;
+    GameState.stats.highestCombo = Math.max(GameState.stats.highestCombo, GameState.stats.currentCombo);
+    this.comboTimer = this.comboResetMs;
+    
     const dropX = enemy.x;
     const dropY = enemy.y;
+    
+    // Boss 特殊处理
+    if (isBoss) {
+      this.bossSystem.onBossKilled(enemy);
+    }
+    
+    // 精英特殊处理
+    if (isElite) {
+      this.eliteSystem.onEliteKilled(enemy);
+    }
+    
     this.releaseEnemy(enemy);
     this.audio.playExplosion();
     this.skillSystem.onEnemyKilled();
     this.lootSystem.attemptDrop(dropX, dropY);
+    this.achievementSystem.check({
+      totalKills: GameState.stats.totalKills,
+      wave: GameState.globals.wave,
+      score: GameState.globals.score
+    });
   }
 
   handleBulletRebound(bullet, body) {
@@ -365,10 +491,70 @@ export class GameScene extends Phaser.Scene {
     enemy.setVisible(false);
   }
 
+  syncExternalSkills() {
+    this.onSkillLevelChanged('defense_shield', GameState.skillState.defense_shield);
+    this.onSkillLevelChanged('summon_drone', GameState.skillState.summon_drone);
+    this.onSkillLevelChanged('aoe_blast', GameState.skillState.aoe_blast);
+  }
+
+  onSkillLevelChanged(skillId, level) {
+    switch (skillId) {
+      case 'defense_shield':
+        this.shieldSystem?.setLevel(level);
+        break;
+      case 'summon_drone':
+        this.droneSystem?.setLevel(level);
+        break;
+      case 'aoe_blast':
+        this.aoeSystem?.setLevel(level);
+        break;
+      default:
+        break;
+    }
+  }
+
+  handleBlur() {
+    this.pauseSystem.setPaused(true);
+  }
+
+  handleFocus() {
+    if (!this.skillSystem?.panelOpen) {
+      this.pauseSystem.setPaused(false);
+    }
+    this.audio.resume();
+  }
+
   endGame(reason) {
     if (this.gameOverTriggered) return;
     this.gameOverTriggered = true;
+    const dps = GameState.stats.runSeconds > 0 ? Math.round(GameState.globals.score / GameState.stats.runSeconds) : GameState.globals.score;
+    const summary = {
+      score: GameState.globals.score,
+      wave: GameState.globals.wave,
+      kills: GameState.stats.totalKills,
+      combo: GameState.stats.highestCombo,
+      skills: { ...GameState.skillState },
+      duration: GameState.stats.runSeconds,
+      aoeTriggers: GameState.stats.aoeTriggers,
+      dps,
+      reason
+    };
+    SaveManager.updateStats({
+      score: summary.score,
+      wave: summary.wave,
+      totalKills: summary.kills,
+      highestCombo: summary.combo,
+      duration: summary.duration,
+      aoeTriggers: summary.aoeTriggers
+    });
+    SaveManager.save({
+      coins: GameState.globals.coins,
+      level: GameState.globals.level,
+      skillState: { ...GameState.skillState },
+      locale: GameState.globals.locale,
+      toggles: { ...SaveManager.data.toggles, lowPowerMode: GameState.globals.lowPowerMode }
+    });
     this.audio.fadeOutBgm();
-    this.scene.start('GameOver', { score: GameState.globals.score, wave: GameState.globals.wave, reason });
+    this.scene.start('GameOver', summary);
   }
 }

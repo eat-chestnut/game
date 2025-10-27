@@ -1,6 +1,8 @@
 import { GameState } from '../state/GameState.js';
 import { UIFactory } from '../ui/UIFactory.js';
 import { ThemeTokens, themeColor } from '../theme.js';
+import { SaveManager } from '../state/SaveManager.js';
+import { t } from '../i18n/index.js';
 
 const SkillDescriptions = {
   atk_speed: '火力循环加速 10%，最低 0.60s',
@@ -9,7 +11,10 @@ const SkillDescriptions = {
   scatter: '散射扇形弹幕，多角度覆盖',
   split: '命中分裂子弹，60%伤害',
   penetration: '穿透敌人并递减伤害',
-  rebound: '墙面反弹，角度偏移'
+  rebound: '墙面反弹，角度偏移',
+  defense_shield: '护盾可吸收伤害并缓慢恢复',
+  summon_drone: '召唤无人机围绕射击',
+  aoe_blast: '周期性释放范围冲击波'
 };
 
 export class SkillSystem {
@@ -30,7 +35,9 @@ export class SkillSystem {
     if (!GameState.globals.nextLevelKills) {
       GameState.globals.nextLevelKills = GameState.globals.baseKillsToLevel;
     }
-    GameState.globals.level = 1;
+    if (!GameState.globals.level) {
+      GameState.globals.level = 1;
+    }
     this.recalcShotPattern();
   }
 
@@ -57,7 +64,7 @@ export class SkillSystem {
     overlay.setDepth(390);
     const panel = this.uiFactory.createPanel(620, 720, 'panelStrong');
     panel.setDepth(400);
-    const title = this.scene.add.text(0, -260, '选择一个技能', {
+    const title = this.scene.add.text(0, -260, t('chooseSkill', GameState.globals.locale), {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '32px',
       fontWeight: '700',
@@ -76,15 +83,21 @@ export class SkillSystem {
       const level = GameState.skillState[skill.id] ?? 0;
       return level < skill.maxLevel;
     }) ?? [];
-    if (available.length === 0) {
-      return [null, null, null];
-    }
     const picks = [];
     while (picks.length < 3 && available.length) {
       const idx = Math.floor(Math.random() * available.length);
       picks.push(available.splice(idx, 1)[0]);
     }
-    while (picks.length < 3) picks.push(null);
+    const allSkills = this.skillConfig?.skills ?? [];
+    while (picks.length < 3) {
+      if (!allSkills.length) {
+        picks.push(null);
+        continue;
+      }
+      const candidate = allSkills[Math.floor(Math.random() * allSkills.length)];
+      if (picks.includes(candidate)) continue;
+      picks.push(candidate);
+    }
     return picks;
   }
 
@@ -115,11 +128,16 @@ export class SkillSystem {
     }).setOrigin(1, 0.5);
     const container = this.scene.add.container(0, offsetY, [bg, label, desc, levelLabel]);
     container.setSize(width, height);
-    if (skillDef) {
+    if (skillDef && level < skillDef.maxLevel) {
       container.setInteractive(new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height), Phaser.Geom.Rectangle.Contains);
       container.on('pointerdown', () => {
         this.applySkill(skillDef.id);
       });
+    } else if (skillDef) {
+      container.setAlpha(0.35);
+    }
+    if (!skillDef) {
+      container.setAlpha(0.2);
     }
     return container;
   }
@@ -163,8 +181,10 @@ export class SkillSystem {
       default:
         break;
     }
+    this.scene.onSkillLevelChanged?.(skillId, GameState.skillState[skillId]);
     this.recalcShotPattern();
     this.toastManager?.show(`${def.name} Lv.${GameState.skillState[skillId]}`, 'success');
+    SaveManager.save({ skillState: { ...GameState.skillState } });
     this.closePanel();
   }
 
@@ -198,9 +218,12 @@ export class SkillSystem {
     const dedupAngles = [...new Set(patternAngles.map(val => Number(val.toFixed(2))))].sort((a, b) => a - b);
     const multiTotal = multiLevel > 0 ? Math.pow(1.1, multiLevel) : 1;
     const totalMultiplier = Math.max(scatterTotal, multiTotal, 1);
+    const angles = dedupAngles.length ? dedupAngles : [0];
+    const shotCount = angles.length || 1;
     GameState.globals.baseShotPattern = {
-      angles: dedupAngles.length ? dedupAngles : [0],
-      totalMultiplier
+      angles,
+      totalMultiplier,
+      perShotMultiplier: totalMultiplier / shotCount
     };
   }
 

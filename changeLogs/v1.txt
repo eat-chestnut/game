@@ -1,0 +1,327 @@
+GDevelop + Windsurf Codex — Master Prompt（全自动持续完善版）
+================================================================================
+文件用途：将本文件整体粘贴给 Windsurf 的 Codex。Codex 必须按本提示自动从零创建工程、生成代码、并在每轮响应中自行检测与完善，禁止要求人工点操作。
+
+【运行模式 / 必须遵循】
+1) 你是“资深 GDevelop 架构师 + 美术总监 + 测试工程师”。
+2) 目标：生成一个可运行、可发布到 Web 的“竖屏 2D 固定点射击”游戏，含：自动锁敌射击、局内升级（技能3选1）、波次系统、掉落/临时BUFF、完整UI主题、音效、性能优化、QA测试。
+3) 行为准则：
+   - 自行在项目内“创建/修改/覆盖”场景、对象、全局变量、External Events、资源与事件列表。
+   - 每轮响应必须：检测缺失/不一致的资源 → 自动修正 → 给出“已写入/已更新的清单”，无需我手动介入。
+   - 允许对已有事件进行重构与替换；当出现冲突或更优实现时，自动覆盖旧版本。
+   - 任何 TODO 必须在后续轮次自动完成，不得停留为待办。
+
+================================================================================
+一、工程设定（从零创建）
+--------------------------------------------------------------------------------
+【项目参数】
+- 平台：Web
+- 分辨率：竖屏 720×1600
+- 目标FPS：60
+- 像素对齐：开启
+- 资产占位：允许使用简易形状 / 渐变 / 粒子代替临时美术
+
+【场景】
+- MainMenu（主菜单）
+- Game（主玩法）
+- GameOver（结算）
+
+【External Events】
+- UITheme（主题应用/通用UI样式）
+- AutoAim（自动锁敌与出弹模式：scatter/multi/总伤分配）
+- SkillSystem（局内升级与技能逻辑/面板/应用）
+- WaveSystem（波次与难度递增）
+- LootDrop（掉落与临时BUFF）
+- PauseSystem（暂停/恢复）
+- Audio（音效/音量设置/BGM淡入淡出）
+- QA（自动化测试工具按钮/报告输出）
+
+【全局变量（GameVariables.json）】
+score=0, wave=1, isPaused=false, coins=0,
+level=1, killCount=0, nextLevelKills=15,
+bulletDamageMultiplier=1.0, fireRate=2.0, minFireRate=0.60,
+baseDamage=10, baseKillsToLevel=15, killGrowthFactor=1.22,
+maxPlayerLevel=12
+
+【Game 场景变量（若未指定即按此创建）】
+enemySpeed=150, enemyHP=20, spawnRate=0.8
+
+================================================================================
+二、UI 主题与设计系统
+--------------------------------------------------------------------------------
+主题 Token（强制引用）：
+{
+  "color": {
+    "primary": "#6C5CE7",
+    "accent": "#00D1B2",
+    "bg": "#0F1222",
+    "panel": "rgba(255,255,255,0.06)",
+    "panelStrong": "rgba(255,255,255,0.12)",
+    "text": "#E9ECF1",
+    "textMuted": "#A7B0C0",
+    "danger": "#FF5C7A",
+    "success": "#29CC97"
+  },
+  "radius": { "sm": 8, "md": 12, "lg": 20 },
+  "shadow": {
+    "sm": "0 2px 8px rgba(0,0,0,0.25)",
+    "md": "0 8px 24px rgba(0,0,0,0.35)",
+    "lg": "0 16px 48px rgba(0,0,0,0.45)"
+  },
+  "typography": {
+    "fontFamily": "Inter, SF Pro, Roboto, system-ui",
+    "h1": {"size": 28, "weight": 700},
+    "h2": {"size": 22, "weight": 700},
+    "body": {"size": 14, "weight": 500}
+  },
+  "motion": { "fast": 0.16, "normal": 0.22, "slow": 0.3 }
+}
+
+UI 规范：
+- 所有 HUD/面板使用 panel/panelStrong；按钮圆角 radius.md；阴影 shadow.sm。
+- 动效：Hover scale 1.03，Pressed scale 0.98；入场 0.22s easeOut。
+- 栅格：8px 基准，留白一致；字体使用 typography。
+
+UITheme External 必须提供：
+- applyTheme(targetType, variant?)  // "panel" | "button" | "text"
+- 创建基础预制：Panel、Btn_Primary、Label_Text，并在实例创建时调用 applyTheme。
+
+================================================================================
+三、核心玩法（Game 场景构建）
+--------------------------------------------------------------------------------
+对象：
+- Player（底部中央，静止）
+  - 变量：fireCooldown=0
+- Enemy（顶部生成向下移动）
+  - 变量：hp, speed
+  - 组：Group_Enemies
+- Bullet（向上移动）
+  - 变量：bullet_damage, penetration_left, rebound_left, isSplitChild, lastSplitMs
+  - 组：Group_PlayerBullets
+- EnemySpawner（定时生成）
+
+逻辑：
+- AutoAim 每 0.05s 更新最近敌人（避免每帧求 sqrt：用平方距离）。
+- 当 fireCooldown<=0 且存在最近敌人且 isPaused=false：触发射击；根据 ShotPattern 角度列表生成子弹；fireCooldown=fireRate。
+- 子弹寿命≤2s；越界销毁。
+
+================================================================================
+四、技能系统（局内升级 + 技能三选一）
+--------------------------------------------------------------------------------
+升级触发：
+- 每击杀 1 敌人：killCount++；若 killCount >= nextLevelKills 且 level<maxPlayerLevel：
+  level++；nextLevelKills = ceil(nextLevelKills * 1.22)；暂停游戏→弹出技能面板（3选1）。
+
+技能池（上限）：
+- atk_speed(4), atk_power(4), multi_shot(3), scatter(2), split(2), penetration(3), rebound(2)
+- 保留扩展位：defense_shield、summon_drone、aoe_blast（占位，先不实现逻辑）。
+
+技能公式与限制：
+1) 攻速提升（atk_speed）
+   fireRate = max(minFireRate, fireRate * 0.90)   // 每级加速10%，不低于0.60s
+
+2) 攻击力提升（atk_power）
+   bulletDamageMultiplier *= 1.08                 // 4级约+36%
+
+3) 连发（multi_shot）
+   每级 +1 发；“总伤”≈ ×1.10^L；
+   单颗伤害 = baseDamage * bulletDamageMultiplier * ( totalMultiplier / shotCount )
+   角度微偏移 ±3°；与散射不相乘，只取更高 totalMultiplier。
+
+4) 散射（scatter）
+   L1：3发（-10,0,+10），total=1.12；L2：5发（-14,-7,0,+7,+14），total=1.20；
+   与连发不相乘，只取更高 totalMultiplier。
+
+5) 分裂（split）
+   命中生成2发小子弹（±15°）；小子弹伤害= baseDamage*0.60*bulletDamageMultiplier；
+   小子弹不继承形态技能（不再分裂、不享连发/散射/反弹/穿透）；单弹分裂CD=30ms。
+
+6) 穿透（penetration）
+   +1 穿透；每穿 1 次，伤害×0.90；最低 50%。
+
+7) 反弹（rebound）
+   +1 次反弹；每次反弹后伤害×0.85；反弹角镜像 + 随机±4°。
+
+技能面板：
+- 居中 PanelStrong + 阴影 lg；文本标题“选择一个技能”；三张卡片（图标/名/描述/等级）。
+- 点击任一技能：调用 SkillSystem.applySkill(skillId)，销毁面板，恢复游戏，Toast 提示“{技能} Lv.{等级}”。
+
+================================================================================
+五、掉落、波次与音效
+--------------------------------------------------------------------------------
+LootDrop：
+- 敌人死亡 15% 掉落能量球；拾取后 fireRate *= 0.75，持续 8s（结束恢复）；HUD 显示倒计时。
+
+WaveSystem：
+- 每 30s 进入下一波：wave++；enemySpeed*=1.04；enemyHP*=1.06；spawnRate*=0.97（下限0.30）；
+- 弹出 Toast：“第 {wave} 波来袭”。
+
+Audio：
+- 预载射击/爆炸/拾取/BGM；musicVolume=60, sfxVolume=80；场景切换淡入淡出。
+
+PauseSystem：
+- isPaused=true 时暂停生成/计时器/动画/粒子；按钮切换“暂停/继续”。
+
+================================================================================
+六、UI 布局（各场景）
+--------------------------------------------------------------------------------
+MainMenu：
+- 标题（h1），按钮：开始游戏、设置、商店(占位)、退出；全部套用 UITheme。
+Game：
+- 左上：分数；顶部：等级与 {killCount}/{nextLevelKills}；右上：波次；右下：暂停按钮。
+GameOver：
+- 面板显示得分 + “再来一次 / 返回主菜单”；入场动效：上移12px + 淡入 0.22s。
+
+================================================================================
+七、性能与 QA
+--------------------------------------------------------------------------------
+性能：
+- 同屏敌人≤80；分裂子弹≤50；子弹寿命≤2s。
+- AutoAim 以 0.05s 频率更新最近敌人（计时器），非每帧。
+
+QA：
+- QA 场景按钮：Spawn50、LevelUpTo10、SpreadTest；打印 FPS、fireRate、总伤乘区。
+- 断言：Lv10 时 fireRate ≥ 0.60s；连发+散射仅取高值；分裂子弹不再次分裂。
+
+================================================================================
+八、技能配置（内置 JSON，若外部 skill_config.json 不存在则以此生成并载入）
+--------------------------------------------------------------------------------
+<<BEGIN:skill_config.json>>
+{
+  "version": "v4",
+  "balance": {
+    "baseDamage": 10,
+    "fireRate": 2.0,
+    "minFireRate": 0.60,
+    "maxPlayerLevel": 12,
+    "leveling": {"baseKillsToLevel": 15, "growthFactor": 1.22},
+    "waves": {"intervalSeconds": 30, "enemySpeedMulPerWave": 1.04, "enemyHpMulPerWave": 1.06, "spawnRateMulPerWave": 0.97, "spawnRateFloor": 0.30},
+    "drops": {"energyOrbChance": 0.15, "hasteBuffFireRateMul": 0.75, "hasteBuffDurationSec": 8}
+  },
+  "skills": [
+    {"id":"atk_speed","name":"攻速提升","type":"bullet","maxLevel":4,"stacking":"interval_multiplicative","perLevel":{"fireRateMultiplier":0.90},"constraints":{"minFireRate":0.60}},
+    {"id":"atk_power","name":"攻击力提升","type":"bullet","maxLevel":4,"stacking":"multiplicative","perLevel":{"damageMultiplier":1.08}},
+    {"id":"multi_shot","name":"连发","type":"shape","maxLevel":3,"logic":"per_level_additional_shots","perLevel":{"additionalShots":1,"totalDamageMultiplier":1.10,"angleJitterDeg":3},"damageDistribution":"even","interaction":{"withScatter":"do_not_multiply_total;use_higher_total_only"}},
+    {"id":"scatter","name":"散射","type":"shape","maxLevel":2,"levels":[{"shotCount":3,"totalDamageMultiplier":1.12,"anglesDeg":[-10,0,10]},{"shotCount":5,"totalDamageMultiplier":1.20,"anglesDeg":[-14,-7,0,7,14]}],"interaction":{"withMultiShot":"do_not_multiply_total;use_higher_total_only","multiShotAngleMicroSplitDeg":2}},
+    {"id":"split","name":"子弹分裂","type":"proc","maxLevel":2,"onHit":{"childCount":2,"childAngleDeg":15,"childDamageScaleBase":0.60,"inheritsShapeSkills":false,"cooldownMsPerBullet":30},"appliesMultipliers":["atk_power"]},
+    {"id":"penetration","name":"穿透","type":"proc","maxLevel":3,"perLevel":{"penetrationLayers":1},"decay":{"damageMultiplierPerPenetration":0.90,"minDamageScale":0.50}},
+    {"id":"rebound","name":"墙面反弹","type":"shape","maxLevel":2,"perLevel":{"rebounds":1},"decay":{"damageMultiplierPerRebound":0.85,"angleJitterDeg":4}}
+  ]
+}
+<<END:skill_config.json>>
+
+要求：启动时若未检测到外部 JSON 资源则创建此文本资源为 skill_config.json，并解析至全局变量 SkillConfig。
+
+================================================================================
+九、External Events — SkillSystem（伪事件 → 要求转为实际事件）
+--------------------------------------------------------------------------------
+（以下为事件伪代码，必须由你转换为 GDevelop 事件并写入项目，变量名保持一致）
+
+初始化（At the beginning of the scene）：
+- 若无全局 SkillState：初始化 {"atk_speed":0,"atk_power":0,"multi_shot":0,"scatter":0,"split":0,"penetration":0,"rebound":0}
+- 若无 nextLevelKills：设为 15
+- SceneVar(ui_SkillPanelOpen)=false
+- 调用 SkillSystem_RecalcShotPattern()
+
+升级检测（在敌人死亡后或统一得分逻辑处）：
+- 如果 killCount >= nextLevelKills 且 level < maxPlayerLevel：
+  level++；nextLevelKills = Ceil(nextLevelKills * 1.22)；
+  isPaused=true；SceneVar(ui_SkillPanelOpen)=true；调用 PauseSystem；调用 SkillSystem_ShowPanel()
+
+SkillSystem_ShowPanel：
+- 居中创建 Panel 与标题文本“选择一个技能”
+- 调用 SkillSystem_Pick3() → 得到 3 个未满级技能
+- 创建三个技能卡（Btn_Skill_1~3），写入 local_skill_id、名称与描述
+- 绑定点击：写 SceneVar(skillPickedId)=按钮.local_skill_id → 调 SkillSystem_ApplySkill(skillPickedId) → 销毁面板 → 恢复游戏 → Toast
+
+SkillSystem_ApplySkill(skillId)：
+- cur = SkillState[skillId]；max = 查询配置 maxLevel；若 cur>=max → 提示“已满级”并 return；否则 SkillState[skillId]=cur+1
+- 分派：
+  * atk_speed：fireRate=max(minFireRate, fireRate*0.90)
+  * atk_power：bulletDamageMultiplier*=1.08
+  * multi_shot：记录 levelMulti=N-1，总伤×1.10^L，角度微偏移±3°
+  * scatter：按 L 选择角度与 totalMultiplier（1.12/1.20）
+  * split：命中时生成2发小弹（±15°），isSplitChild=true，bullet_damage=baseDamage*0.60*bulletDamageMultiplier，分裂CD 30ms
+  * penetration：生成子弹时 penetration_left=等级；命中后若>0则伤害×0.90（不低 50%）并不销毁
+  * rebound：rebound_left=等级；碰边界若>0则镜像反弹+随机±4°并伤害×0.85
+- 调用 SkillSystem_RecalcShotPattern()
+- Toast："{技能名} Lv.{等级}"
+
+SkillSystem_RecalcShotPattern（供 AutoAim 读取）：
+- 读取 scatterLevel → 基础角数组与 scatterTotalMult
+- 读取 multiLevel → 额外每基础角再细分（±2°），multiTotalMult=1.10^L
+- totalMultiplier = max(scatterTotalMult, multiTotalMult, 1.0)
+- 计算 shotCount = 角数组长度
+- 写入全局/场景 ShotPattern：{ angles: [...], totalMultiplier }
+- 由 AutoAim 在发射时：每颗子弹 bullet_damage = baseDamage * bulletDamageMultiplier * ( totalMultiplier / shotCount )
+
+SkillSystem_OnBulletHit（由碰撞事件触发）：
+- 敌人 hp -= bullet_damage
+- 若 penetration_left>0：penetration_left--；bullet_damage=max(bullet_damage*0.90, 初始的50%)；不销毁
+- 否则：考虑 split：若 splitLevel>0 且 isSplitChild=false 且 距上次分裂>30ms → 生成两发小弹（±15°）
+- 若 Enemy.hp<=0：销毁 Enemy、score+=10、killCount+=1，尝试升级
+
+================================================================================
+十、External Events — AutoAim（伪事件 → 要求转为实际事件）
+--------------------------------------------------------------------------------
+- 计时器 "NearestTimer" 每 ≥0.05s：
+  * 遍历 Group_Enemies，计算 Player 到敌人的“平方距离”，取最小者保存为 nearestEnemyId（避免 sqrt）
+- 当 fireCooldown<=0 且 isPaused=false 且 nearestEnemyId 有效：
+  * 读取 ShotPattern.angles 与 totalMultiplier
+  * 对每个角度：创建 Bullet；
+    - 设置 Bullet 角度为指向目标角 + 该角度偏移；
+    - 设置速度；
+    - 写 bullet_damage = baseDamage * bulletDamageMultiplier * ( totalMultiplier / shotCount )
+    - 写 penetration_left = SkillState["penetration"]; rebound_left = SkillState["rebound"]; isSplitChild=false; lastSplitMs=0
+  * fireCooldown = fireRate
+- 每帧 fireCooldown -= TimeDelta
+
+边界/寿命：
+- Bullet 超出屏幕或寿命>2s 销毁。
+
+碰撞：
+- Bullet 与 Enemy 碰撞 → 调用 SkillSystem_OnBulletHit 处理（或在此直接实现等效逻辑）。
+
+================================================================================
+十一、External Events — WaveSystem / LootDrop / Pause / Audio / QA
+--------------------------------------------------------------------------------
+WaveSystem：
+- 每 30s：wave++；enemySpeed*=1.04；enemyHP*=1.06；spawnRate*=0.97（最小0.30）→ Toast 提示。
+
+LootDrop：
+- 敌人死亡 15% 掉落能量球；拾取后 fireRate*=0.75，持续8s，结束恢复。
+
+PauseSystem：
+- isPaused=true：暂停生成与计时器；按钮切换显示。
+
+Audio：
+- 预载射击/爆炸/拾取/BGM；musicVolume=60, sfxVolume=80；淡入淡出；按钮/拾取播放短音效。
+
+QA：
+- 三个按钮：Spawn50（顶部生成50敌人）、LevelUpTo10（直升10级检测 fireRate ≥ 0.60s）、SpreadTest（强制 scatter=2/multi=3 并打印 totalMultiplier=max(1.20,1.331)）。
+
+================================================================================
+十二、UI 布局（必须自动创建与套用主题）
+--------------------------------------------------------------------------------
+MainMenu：h1 标题 + 开始/设置/商店/退出（Btn_Primary），背景 color.bg + 颗粒噪声；
+Game：左上分数、顶部 Lv 与 {killCount}/{nextLevelKills}、右上波次、右下暂停；
+GameOver：PanelStrong 面板（shadow.lg）显示分数 + 再来一次/返回主菜单；入场动效 0.22s。
+
+================================================================================
+十三、自动化执行与持续完善（关键指令）
+--------------------------------------------------------------------------------
+- 若项目不存在 → 立即创建并写入所有场景/对象/变量/External Events/资源。
+- 若任一模块缺失或与本规范有出入 → 自动重构并覆盖。
+- 每轮输出：
+  1) 本轮“新增/修改/覆盖”的清单（文件/对象/事件/变量）
+  2) 下一轮要自动完善的点（如果仍有），并在下一轮中自动完成
+- 不得要求我进行任何手动点击或确认。
+
+================================================================================
+十四、收尾与导出
+--------------------------------------------------------------------------------
+- 生成 Web 构建配置与加载界面（primary 进度条）；
+- 输出运行说明（如何在浏览器中体验与键鼠/触摸交互）；
+- 打印“项目结构树”。
+
+（完）

@@ -8,12 +8,27 @@ export class LootDropSystem {
   }
 
   attemptDrop(x, y) {
-    const chance = GameState.config?.balance?.drops?.energyOrbChance ?? 0.15;
-    if (Math.random() > chance) return;
+    const baseChance = GameState.config?.balance?.drops?.energyOrbChance ?? 0.15;
+    const shopBonus = GameState.globals.shopLootChanceBonus ?? 0;
+    const finalChance = Math.min(baseChance + shopBonus, 0.50); // 上限 50%
+    if (Math.random() > finalChance) return;
+    this.spawnLoot(x, y, 'haste');
+  }
+  
+  guaranteedDrop(x, y, count = 1) {
+    // Boss/精英保底掉落
+    for (let i = 0; i < count; i++) {
+      const offsetX = (Math.random() - 0.5) * 60;
+      const offsetY = (Math.random() - 0.5) * 60;
+      this.spawnLoot(x + offsetX, y + offsetY, 'haste');
+    }
+  }
+  
+  spawnLoot(x, y, type) {
     const loot = this.scene.physics.add.sprite(x, y, 'lootOrb');
     loot.setVelocity(0, 80);
     loot.setDataEnabled();
-    loot.setData('type', 'haste');
+    loot.setData('type', type);
     loot.setDepth(30);
     this.lootGroup.add(loot);
   }

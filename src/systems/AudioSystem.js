@@ -8,9 +8,19 @@ export class AudioSystem {
     this.musicGain = null;
     this.sfxGain = null;
     this.bgmSource = null;
+    this.unlocked = false;
+    this.scene.input?.once('pointerdown', () => this.unlockAudio());
+  }
+
+  unlockAudio() {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    this.ensureContext();
+    this.startBgm();
   }
 
   ensureContext() {
+    if (!this.unlocked) return;
     if (this.ctx) return;
     const Ctx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctx();
@@ -32,6 +42,10 @@ export class AudioSystem {
   }
 
   startBgm() {
+    if (!this.unlocked) {
+      this.scene.input?.once('pointerdown', () => this.startBgm());
+      return;
+    }
     this.ensureContext();
     this.applySettings();
     this.stopBgm();
@@ -72,24 +86,28 @@ export class AudioSystem {
   }
 
   playShoot() {
+    if (!this.unlocked) return;
     this.ensureContext();
     this.applySettings();
     this.triggerTone(620, 80);
   }
 
   playExplosion() {
+    if (!this.unlocked) return;
     this.ensureContext();
     this.applySettings();
     this.triggerNoise(0.15);
   }
 
   playPickup() {
+    if (!this.unlocked) return;
     this.ensureContext();
     this.applySettings();
     this.triggerTone(880, 120, 0.5);
   }
 
   triggerTone(freq, durationMs, gainScale = 1) {
+    if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.frequency.value = freq;
@@ -103,6 +121,7 @@ export class AudioSystem {
   }
 
   triggerNoise(durationSec) {
+    if (!this.ctx) return;
     const bufferSize = this.ctx.sampleRate * durationSec;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -116,5 +135,11 @@ export class AudioSystem {
     source.connect(gain);
     gain.connect(this.sfxGain);
     source.start();
+  }
+
+  resume() {
+    if (this.ctx?.state === 'suspended') {
+      this.ctx.resume();
+    }
   }
 }

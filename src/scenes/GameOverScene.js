@@ -9,6 +9,10 @@ export class GameOverScene extends Phaser.Scene {
   init(data) {
     this.finalScore = data?.score ?? 0;
     this.wave = data?.wave ?? 1;
+    this.kills = data?.kills ?? 0;
+    this.combo = data?.combo ?? 0;
+    this.skills = data?.skills ?? {};
+    this.dps = data?.dps ?? 0;
   }
 
   create() {
@@ -22,11 +26,21 @@ export class GameOverScene extends Phaser.Scene {
       fontWeight: '700',
       color: ThemeTokens.color.text
     }).setOrigin(0.5);
-    const scoreText = this.add.text(0, -60, `分数：${this.finalScore}\n波次：${this.wave}`, {
+    const scoreText = this.add.text(0, -60, `分数：${this.finalScore}\n波次：${this.wave}\n击杀：${this.kills}\n连杀：${this.combo}\nDPS≈${this.dps}`, {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '24px',
       align: 'center',
       color: ThemeTokens.color.text
+    }).setOrigin(0.5);
+    const skillLines = Object.entries(this.skills)
+      .filter(([, level]) => level > 0)
+      .map(([key, level]) => `${key}: Lv.${level}`)
+      .slice(0, 6);
+    const skillsText = this.add.text(0, 40, skillLines.length ? `技能：\n${skillLines.join('\n')}` : '技能：--', {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '18px',
+      align: 'center',
+      color: ThemeTokens.color.textMuted
     }).setOrigin(0.5);
     const retryBtn = ui.createButton('再来一次', { width: 320, height: 70, variant: 'primary' });
     retryBtn.setPosition(0, 80);
@@ -34,7 +48,7 @@ export class GameOverScene extends Phaser.Scene {
     const homeBtn = ui.createButton('返回主菜单', { width: 320, height: 70, variant: 'accent' });
     homeBtn.setPosition(0, 180);
     homeBtn.on('pointerup', () => this.toMenu());
-    container.add([title, scoreText, retryBtn, homeBtn]);
+    container.add([title, scoreText, skillsText, retryBtn, homeBtn]);
     container.setAlpha(0);
     container.setY(820);
     this.tweens.add({ targets: container, alpha: 1, y: 800, duration: 220, ease: 'Sine.easeOut' });

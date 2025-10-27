@@ -21,6 +21,15 @@ export class WaveSystem {
     this.scene.sceneVars.spawnRate = Math.max(spawnRateFloor, this.scene.sceneVars.spawnRate * spawnRateMul);
     this.scene.resetSpawnTimer();
     this.scene.updateWaveHud();
-    this.toast?.show(`第 ${GameState.globals.wave} 波来袭`, 'info', 2500);
+    
+    // Boss 波次判定
+    if (this.scene.bossSystem?.shouldSpawnBoss(GameState.globals.wave)) {
+      this.toast?.show(`第 ${GameState.globals.wave} 波 - BOSS 来袭！`, 'danger', 3000);
+      this.scene.time.delayedCall(1500, () => {
+        this.scene.bossSystem.spawnBoss(GameState.globals.wave);
+      });
+    } else {
+      this.toast?.show(`第 ${GameState.globals.wave} 波来袭`, 'info', 2500);
+    }
   }
 }

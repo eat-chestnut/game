@@ -1,15 +1,19 @@
 import { UIFactory } from './UIFactory.js';
 import { ThemeTokens, themeColor } from '../theme.js';
 import { SettingsState } from '../state/SettingsState.js';
+import { SaveManager } from '../state/SaveManager.js';
+import { GameState } from '../state/GameState.js';
 
 export class SettingsPanel {
-  constructor(scene, audioSystem) {
+  constructor(scene, audioSystem, callbacks = {}) {
     this.scene = scene;
     this.audio = audioSystem;
+    this.callbacks = callbacks;
     this.uiFactory = new UIFactory(scene);
     this.container = null;
     this.musicLabel = null;
     this.sfxLabel = null;
+    this.lowPowerBtn = null;
     this.build();
   }
 
@@ -31,19 +35,36 @@ export class SettingsPanel {
     const musicSection = this.buildSliderRow('BGM 音量', 700, value => this.adjustVolume('musicVolume', value));
     const sfxSection = this.buildSliderRow('SFX 音量', 860, value => this.adjustVolume('sfxVolume', value));
 
+    const langLabel = this.scene.add.text(360, 940, '语言', {
+      fontFamily: ThemeTokens.typography.fontFamily,
+      fontSize: '20px',
+      color: ThemeTokens.color.text
+    }).setOrigin(0.5);
+    const langCn = this.uiFactory.createButton('中文', { width: 120, height: 50, variant: 'primary' });
+    langCn.setPosition(300, 1000);
+    langCn.on('pointerup', () => this.setLocale('zh'));
+    const langEn = this.uiFactory.createButton('English', { width: 120, height: 50, variant: 'accent' });
+    langEn.setPosition(420, 1000);
+    langEn.on('pointerup', () => this.setLocale('en'));
+
+    this.lowPowerBtn = this.uiFactory.createButton('', { width: 260, height: 60, variant: 'primary' });
+    this.lowPowerBtn.setPosition(360, 1080);
+    this.lowPowerBtn.on('pointerup', () => this.toggleLowPower());
+
     const closeBtn = this.uiFactory.createButton('关闭', { width: 240, height: 64, variant: 'accent' });
-    closeBtn.setPosition(360, 1020);
+    closeBtn.setPosition(360, 1160);
     closeBtn.on('pointerup', () => this.close());
 
     this.musicLabel = musicSection.label;
     this.sfxLabel = sfxSection.label;
 
-    this.container = this.scene.add.container(0, 0, [overlay, panel, title, musicSection.container, sfxSection.container, closeBtn])
+    this.container = this.scene.add.container(0, 0, [overlay, panel, title, musicSection.container, sfxSection.container, langLabel, langCn, langEn, this.lowPowerBtn, closeBtn])
       .setDepth(600)
       .setVisible(false);
 
     overlay.on('pointerdown', () => this.close());
     this.refreshLabels();
+    this.refreshLowPower();
   }
 
   buildSliderRow(title, y, onAdjust) {
@@ -85,6 +106,7 @@ export class SettingsPanel {
     if (this.sfxLabel) {
       this.sfxLabel.setText(`${Math.round(SettingsState.values.sfxVolume * 100)}%`);
     }
+    this.refreshLowPower();
   }
 
   open() {
@@ -99,5 +121,24 @@ export class SettingsPanel {
   close() {
     if (!this.container) return;
     this.container.setVisible(false);
+  }
+
+  setLocale(locale) {
+    SaveManager.save({ locale });
+    GameState.globals.locale = locale;
+    this.callbacks.onLocaleChange?.(locale);
+  }
+
+  toggleLowPower() {
+    const next = !GameState.globals.lowPowerMode;
+    GameState.globals.lowPowerMode = next;
+    SaveManager.save({ toggles: { ...SaveManager.data.toggles, lowPowerMode: next } });
+    this.refreshLowPower();
+    this.callbacks.onLowPowerChange?.(next);
+  }
+
+  refreshLowPower() {
+    if (!this.lowPowerBtn) return;
+    this.lowPowerBtn.label.setText(`低性能模式：${GameState.globals.lowPowerMode ? '开' : '关'}`);
   }
 }
