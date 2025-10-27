@@ -1,9 +1,10 @@
 import { GameState } from '../state/GameState.js';
 
 /**
- * v9.1: 元素状态系统
+ * v9.1+v9.2: 元素状态系统
  * 管理 Burn/Freeze/Root/Shatter/Expose 等元素状态
  * 处理状态互斥、联动和DoT计算
+ * v9.2: 修复冻结残留、DoT计时优化、去抖机制
  */
 export class StatusSystem {
   constructor(scene, config) {
@@ -20,14 +21,20 @@ export class StatusSystem {
     
     // 状态追踪映射
     this.enemyStatuses = new Map(); // enemyId -> status object
+    
+    // v9.2: DoT 累积误差
+    this.dotAccumulator = 0;
+    this.dotTickInterval = 0.5; // 0.5s
+    this.dotMaxError = 0.01; // 10ms
   }
   
   /**
-   * 应用状态到敌人
+   * v9.2: 应用状态到敌人（带去抖）
    */
   applyStatus(enemy, statusType, source = {}) {
     if (!enemy || !enemy.id) return;
     
+    const now = Date.now();
     const isBoss = enemy.isBoss || false;
     
     // 获取或创建状态对象
@@ -43,15 +50,19 @@ export class StatusSystem {
     
     const statuses = this.enemyStatuses.get(enemy.id);
     
+    // v9.2: 去抖检查 - 同一状态100ms内不重复施加
+    const existing = statuses[statusType];
+    if (existing && existing.applyAt && (now - existing.applyAt) < 100) {
+      return; // 防止重复施加
+    }
+    
     // 状态互斥检查
     if (statusType === 'burn' && statuses.freeze) {
-      // 灼烧时不能冰冻
-      return;
+      return; // 灼烧与冰冻互斥
     }
     
     if (statusType === 'freeze' && statuses.burn) {
-      // 冰冻时已有灼烧，不能冰冻
-      return;
+      return; // 冰冻与灼烧互斥
     }
     
     // 应用状态
@@ -82,6 +93,7 @@ export class StatusSystem {
    * 应用灼烧
    */
   applyBurn(enemy, statuses, source, isBoss) {
+    const now = Date.now();
     const statusScale = this.getStatusScale(source);
     const duration = this.burnConfig.duration * (1 + statusScale.durationPct);
     const damageRatio = this.burnConfig.damageRatio * (1 + statusScale.dotPct);
@@ -94,8 +106,9 @@ export class StatusSystem {
       duration: duration,
       tickInterval: tickInterval,
       tickDamage: tickDamage,
-      lastTick: Date.now(),
-      startTime: Date.now()
+      lastTick: now,
+      applyAt: now,
+      expireAt: now + duration * 1000
     };
     
     console.log(`[Status] Applied Burn to ${enemy.id}: ${tickDamage.toFixed(1)} dmg every ${tickInterval}s for ${duration}s`);
@@ -105,22 +118,26 @@ export class StatusSystem {
    * 应用冰冻
    */
   applyFreeze(enemy, statuses, source, isBoss) {
+    const now = Date.now();
     const statusScale = this.getStatusScale(source);
     const duration = isBoss ? this.freezeConfig.bossDuration : this.freezeConfig.duration;
     const finalDuration = duration * (1 + statusScale.durationPct);
+    
+    const expireAt = now + finalDuration * 1000;
     
     statuses.freeze = {
       duration: finalDuration,
       isBoss: isBoss,
       slowPct: isBoss ? this.freezeConfig.bossSlowPct * (1 + statusScale.slowCapPct) : 1.0,
-      startTime: Date.now()
+      applyAt: now,
+      expireAt: expireAt
     };
     
-    // 完全冻结或减速
+    // v9.2: 使用 expireAt 避免残留
     if (!isBoss) {
-      enemy.frozenUntil = Date.now() + finalDuration * 1000;
+      enemy.frozenUntil = expireAt;
     } else {
-      enemy.slowUntil = Date.now() + finalDuration * 1000;
+      enemy.slowUntil = expireAt;
       enemy.slowMultiplier = 1.0 - statuses.freeze.slowPct;
     }
     
@@ -131,20 +148,23 @@ export class StatusSystem {
    * 应用缠绕
    */
   applyRoot(enemy, statuses, source, isBoss) {
+    const now = Date.now();
     const statusScale = this.getStatusScale(source);
     const duration = this.rootConfig.duration * (1 + statusScale.durationPct);
+    const expireAt = now + duration * 1000;
     
     statuses.root = {
       duration: duration,
       isBoss: isBoss,
       slowPct: isBoss ? this.rootConfig.bossSlowPct * (1 + statusScale.slowCapPct) : 1.0,
-      startTime: Date.now()
+      applyAt: now,
+      expireAt: expireAt
     };
     
     if (!isBoss) {
-      enemy.rootedUntil = Date.now() + duration * 1000;
+      enemy.rootedUntil = expireAt;
     } else {
-      enemy.slowUntil = Date.now() + duration * 1000;
+      enemy.slowUntil = expireAt;
       enemy.slowMultiplier = 1.0 - statuses.root.slowPct;
     }
     
@@ -167,20 +187,23 @@ export class StatusSystem {
    * 应用破甲
    */
   applyExpose(enemy, statuses, source, isBoss) {
+    const now = Date.now();
     const statusScale = this.getStatusScale(source);
     const duration = isBoss ? this.exposeConfig.bossDuration : this.exposeConfig.duration;
     const finalDuration = duration * (1 + statusScale.durationPct);
     const vulnPct = this.exposeConfig.vulnerabilityPct * (1 + statusScale.vulnPct);
+    const expireAt = now + finalDuration * 1000;
     
-    // 不叠层，仅刷新
+    // v9.2: 不叠层，仅刷新
     if (statuses.expose) {
-      statuses.expose.duration = finalDuration;
-      statuses.expose.startTime = Date.now();
+      statuses.expose.expireAt = expireAt;
+      statuses.expose.applyAt = now;
     } else {
       statuses.expose = {
         duration: finalDuration,
         vulnPct: vulnPct,
-        startTime: Date.now()
+        applyAt: now,
+        expireAt: expireAt
       };
     }
     

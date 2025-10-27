@@ -17,6 +17,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.buildBackground();
     this.uiFactory = new UIFactory(this);
     this.buildMenu();
+    // v9.2: 键盘回退（Enter/Space 开始游戏）
+    this.input.keyboard?.once('keydown-ENTER', () => this.startGame());
+    this.input.keyboard?.once('keydown-SPACE', () => this.startGame());
     this.settingsPanel = new SettingsPanel(this, this.audio, {
       onLocaleChange: () => this.refreshTexts(),
       onLowPowerChange: () => {}
@@ -56,9 +59,44 @@ export class MainMenuScene extends Phaser.Scene {
     ];
 
     buttons.forEach((btn, idx) => {
-      const button = this.uiFactory.createButton(btn.label, { variant: btn.variant, width: 320, height: 70 });
-      button.setPosition(360, 620 + idx * 110);
-      button.on('pointerup', () => btn.action());
+      // 临时方案：直接创建简单按钮，不使用 UIFactory
+      const width = 320;
+      const height = 70;
+      const color = btn.variant === 'accent' ? 0x00d1b2 : 0x6c5ce7;
+      const bg = this.add.rectangle(360, 620 + idx * 110, width, height, color, 0.95)
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      const text = this.add.text(360, 620 + idx * 110, btn.label, {
+        fontFamily: ThemeTokens.typography.fontFamily,
+        fontSize: '20px',
+        fontStyle: '600',
+        color: ThemeTokens.color.text
+      }).setOrigin(0.5);
+      
+      // 在背景上注册事件
+      bg.on('pointerdown', () => {
+        console.log(`[MainMenu] Button down: ${btn.label}`);
+        bg.setScale(0.98);
+      });
+      bg.on('pointerup', () => {
+        console.log(`[MainMenu] Button up: ${btn.label}`);
+        bg.setScale(1);
+        btn.action();
+      });
+      bg.on('pointerover', () => {
+        console.log(`[MainMenu] Button over: ${btn.label}`);
+        bg.setScale(1.03);
+      });
+      bg.on('pointerout', () => {
+        console.log(`[MainMenu] Button out: ${btn.label}`);
+        bg.setScale(1);
+      });
+      bg.on('pointermove', () => console.log(`[MainMenu] Button move: ${btn.label}`));
+      
+      bg.setDepth(50);
+      text.setDepth(51);
+      
+      console.log(`[MainMenu] Created direct button ${btn.label}`);
     });
   }
 
@@ -76,7 +114,17 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   startGame() {
-    this.scene.start('Game');
+    console.log('[MainMenu] startGame invoked');
+    // v9.2: 强制取消暂停，避免异常状态阻塞
+    if (GameState?.globals) {
+      GameState.globals.isPaused = false;
+    }
+    // 防抖：避免重复快速触发
+    if (this._starting) return;
+    this._starting = true;
+    this.time.delayedCall(10, () => {
+      this.scene.start('Game');
+    });
   }
 
   openSettings() {

@@ -20,8 +20,7 @@ export class UIFactory {
     const variant = options.variant ?? 'primary';
     const color = variant === 'accent' ? ThemeTokens.color.accent : ThemeTokens.color.primary;
     const bg = this.scene.add.rectangle(0, 0, width, height, themeColor(color), 0.95)
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5);
     const text = this.scene.add.text(0, 0, label, {
       fontFamily: ThemeTokens.typography.fontFamily,
       fontSize: '20px',
@@ -30,19 +29,7 @@ export class UIFactory {
     }).setOrigin(0.5);
     const container = this.scene.add.container(0, 0, [bg, text]).setDepth(20);
     container.setSize(width, height);
-    container.setInteractive(new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height), Phaser.Geom.Rectangle.Contains, { cursor: 'pointer' });
-    const originalOn = container.on.bind(container);
-    container.on = (event, handler) => {
-      if (event === 'pointerup') {
-        return originalOn(event, (...args) => {
-          const now = this.scene.time.now;
-          if (container._debounce && now < container._debounce) return;
-          container._debounce = now + 200;
-          handler(...args);
-        });
-      }
-      return originalOn(event, handler);
-    };
+    container.setInteractive(new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height), Phaser.Geom.Rectangle.Contains, { cursor: 'pointer', useHandCursor: true });
     container.bg = bg;
     container.label = text;
     container.on('pointerover', () => {
@@ -55,9 +42,6 @@ export class UIFactory {
       this.scene.tweens.add({ targets: container, scale: UIFactoryDefaults.pressScale, duration: 60, ease: 'Sine.easeIn' });
     });
     container.on('pointerup', () => {
-      const now = this.scene.time.now;
-      if (container._debounce && now < container._debounce) return;
-      container._debounce = now + 200;
       this.scene.tweens.add({ targets: container, scale: UIFactoryDefaults.hoverScale, duration: 100, ease: 'Sine.easeOut' });
     });
     return container;

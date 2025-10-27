@@ -394,7 +394,9 @@ export class GameScene extends Phaser.Scene {
     enemy.setVisible(true);
     enemy.setTint(0xffffff); // 重置颜色
     enemy.setScale(1); // 重置缩放
-    enemy.clearData(); // 清理旧标记
+    if (enemy.clearData) {
+      enemy.clearData(); // 清理旧标记
+    }
     
     // 精英生成判定
     if (!force && this.eliteSystem.shouldSpawnElite()) {
@@ -644,6 +646,17 @@ export class GameScene extends Phaser.Scene {
       return await response.json();
     } catch (error) {
       console.error('[GameScene] Equipment config load failed:', error);
+      return {};
+    }
+  }
+
+  async loadSkillConfig() {
+    try {
+      const response = await fetch('skill_config.json');
+      if (!response.ok) throw new Error('Failed to fetch skill config');
+      return await response.json();
+    } catch (error) {
+      console.error('[GameScene] Skill config load failed:', error);
       return {};
     }
   }

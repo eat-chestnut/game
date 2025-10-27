@@ -1,9 +1,10 @@
 import { GameState } from '../state/GameState.js';
 
 /**
- * v9+v9.1: 宝石系统
+ * v9+v9.1+v9.2: 宝石系统
  * 管理宝石的镶嵌、拆卨、合成，支持五行元素
  * v9.1: 支持6槽动态解锁，通用宝石
+ * v9.2: 批量操作保护、锁定检查、防抖
  */
 export class GemSystem {
   constructor(scene, equipConfig) {
@@ -13,6 +14,10 @@ export class GemSystem {
     this.mergeConfig = equipConfig?.gems?.merge || { input: 3, output: 1, upgradeTier: true };
     this.sockets = equipConfig?.sockets || {};
     this.maxSocketsPerItem = equipConfig?.ui?.maxSocketsPerItem || 6; // v9.1
+    
+    // v9.2: 操作防抖
+    this.lastOperation = null;
+    this.operationDebounce = 100; // 100ms
     
     // 初始化宝石库存
     if (!GameState.gems) {
@@ -51,14 +56,31 @@ export class GemSystem {
   }
   
   /**
-   * 镶嵌宝石 (v9.1: 支持6槽动态解锁)
+   * v9.2: 镶嵌宝石 (带锁定检查和防抖)
    */
   socketGem(itemId, gemId, socketIndex) {
+    // v9.2: 防抖
+    const now = Date.now();
+    const opKey = `socket_${itemId}_${gemId}_${socketIndex}`;
+    if (this.lastOperation === opKey && this.lastOperationTime && (now - this.lastOperationTime) < this.operationDebounce) {
+      return { success: false, error: 'Operation too frequent' };
+    }
+    
     const item = this.findItemById(itemId);
     const gem = this.findGemById(gemId);
     
     if (!item || !gem) {
       return { success: false, error: 'Item or gem not found' };
+    }
+    
+    // v9.2: 检查装备锁定
+    if (item.locked) {
+      return { success: false, error: 'Item is locked' };
+    }
+    
+    // v9.2: 检查宝石锁定
+    if (gem.locked) {
+      return { success: false, error: 'Gem is locked' };
     }
     
     // v9.1: 动态计算当前装备的插槽数量
@@ -94,13 +116,27 @@ export class GemSystem {
     
     console.log(`[GemSystem] Socketed ${gem.type} gem into ${item.slot} at socket ${socketIndex}`);
     
+    // v9.2: 记录操作
+    this.lastOperation = opKey;
+    this.lastOperationTime = now;
+    
     return { success: true, gem, item };
   }
   
   /**
-   * 拆卸宝石
+   * v9.2: 拆卨宝石 (带锁定检查)
    */
   unsocketGem(itemId, socketIndex) {
+    const item = this.findItemById(itemId);
+    if (!item) {
+      return { success: false, error: 'Item not found' };
+    }
+    
+    // v9.2: 检查装备锁定
+    if (item.locked) {
+      return { success: false, error: 'Item is locked' };
+    }
+    
     if (!GameState.gems.socketed[itemId]) {
       return { success: false, error: 'No gems socketed' };
     }
@@ -108,6 +144,11 @@ export class GemSystem {
     const gem = GameState.gems.socketed[itemId][socketIndex];
     if (!gem) {
       return { success: false, error: 'Socket empty' };
+    }
+    
+    // v9.2: 检查宝石锁定
+    if (gem.locked) {
+      return { success: false, error: 'Gem is locked' };
     }
     
     // 移除宝石

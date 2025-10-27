@@ -1,8 +1,9 @@
 import { GameState } from '../state/GameState.js';
 
 /**
- * v9.1: 组合技引擎
+ * v9.1+v9.2: 组合技引擎
  * 处理技能组合逻辑（水→火、木→土、金→火等）
+ * v9.2: 添加组合技冷却0.3s与去重机制
  */
 export class ComboEngine {
   constructor(scene, config) {
@@ -13,6 +14,10 @@ export class ComboEngine {
     // 组合技事件窗口（记录最近的状态变化）
     this.eventWindow = [];
     this.windowDuration = 3000; // 3秒窗口
+    
+    // v9.2: 组合技冷却跟踪 (enemyId_comboId -> lastTriggerTime)
+    this.comboCooldowns = new Map();
+    this.comboCooldownDuration = 300; // 0.3s冷却
   }
   
   /**
@@ -42,14 +47,44 @@ export class ComboEngine {
   }
   
   /**
-   * 检查并触发组合技
+   * v9.2: 清理过期冷却
    */
-  checkAndTriggerCombo(enemyId, currentElement, damage, enemy) {
-    this.comboRules.forEach(rule => {
-      if (this.canTriggerCombo(enemyId, currentElement, rule, damage)) {
-        this.triggerCombo(rule, enemy, damage);
+  cleanupOldCooldowns() {
+    const now = Date.now();
+    const toDelete = [];
+    
+    this.comboCooldowns.forEach((time, key) => {
+      if (now - time > this.comboCooldownDuration * 2) {
+        toDelete.push(key);
       }
     });
+    
+    toDelete.forEach(key => this.comboCooldowns.delete(key));
+  }
+  
+  /**
+   * v9.2: 检查并触发组合技（带冷却）
+   */
+  checkAndTriggerCombo(enemyId, currentElement, damage, enemy) {
+    const now = Date.now();
+    
+    this.comboRules.forEach(rule => {
+      // v9.2: 检查冷却
+      const cooldownKey = `${enemyId}_${rule.id}`;
+      const lastTrigger = this.comboCooldowns.get(cooldownKey);
+      
+      if (lastTrigger && (now - lastTrigger) < this.comboCooldownDuration) {
+        return; // 冷却中
+      }
+      
+      if (this.canTriggerCombo(enemyId, currentElement, rule, damage)) {
+        this.triggerCombo(rule, enemy, damage);
+        this.comboCooldowns.set(cooldownKey, now); // 记录触发时间
+      }
+    });
+    
+    // 清理过期冷却
+    this.cleanupOldCooldowns();
   }
   
   /**
