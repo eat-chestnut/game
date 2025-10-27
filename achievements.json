@@ -1,0 +1,418 @@
+{
+  "version": "v8.0",
+  "achievements": [
+    {
+      "id": "first_kill",
+      "category": "combat",
+      "name": {
+        "zh": "首次击杀",
+        "en": "First Blood"
+      },
+      "desc": {
+        "zh": "击杀第一个敌人",
+        "en": "Kill your first enemy"
+      },
+      "trigger": "kill",
+      "threshold": 1,
+      "reward": {
+        "type": "title",
+        "value": "新手猎人"
+      },
+      "icon": "🎯"
+    },
+    {
+      "id": "kill_100",
+      "category": "combat",
+      "name": {
+        "zh": "百人斩",
+        "en": "Centurion"
+      },
+      "desc": {
+        "zh": "累计击杀100个敌人",
+        "en": "Kill 100 enemies total"
+      },
+      "trigger": "kill",
+      "threshold": 100,
+      "reward": {
+        "type": "coins",
+        "value": 50
+      },
+      "icon": "⚔️"
+    },
+    {
+      "id": "kill_1000",
+      "category": "combat",
+      "name": {
+        "zh": "千人斩",
+        "en": "Killer"
+      },
+      "desc": {
+        "zh": "累计击杀1000个敌人",
+        "en": "Kill 1000 enemies total"
+      },
+      "trigger": "kill",
+      "threshold": 1000,
+      "reward": {
+        "type": "coins",
+        "value": 200
+      },
+      "icon": "⚔️"
+    },
+    {
+      "id": "wave_10",
+      "category": "survival",
+      "name": {
+        "zh": "坚守阵地",
+        "en": "Hold the Line"
+      },
+      "desc": {
+        "zh": "存活到第10波",
+        "en": "Survive to wave 10"
+      },
+      "trigger": "wave",
+      "threshold": 10,
+      "reward": {
+        "type": "coins",
+        "value": 30
+      },
+      "icon": "🛡️"
+    },
+    {
+      "id": "wave_20",
+      "category": "survival",
+      "name": {
+        "zh": "精英战士",
+        "en": "Elite Warrior"
+      },
+      "desc": {
+        "zh": "存活到第20波",
+        "en": "Survive to wave 20"
+      },
+      "trigger": "wave",
+      "threshold": 20,
+      "reward": {
+        "type": "coins",
+        "value": 100
+      },
+      "icon": "🛡️"
+    },
+    {
+      "id": "wave_50",
+      "category": "survival",
+      "name": {
+        "zh": "不朽传奇",
+        "en": "Immortal Legend"
+      },
+      "desc": {
+        "zh": "存活到第50波",
+        "en": "Survive to wave 50"
+      },
+      "trigger": "wave",
+      "threshold": 50,
+      "reward": {
+        "type": "shards",
+        "value": 50
+      },
+      "icon": "👑"
+    },
+    {
+      "id": "score_10k",
+      "category": "score",
+      "name": {
+        "zh": "高分玩家",
+        "en": "High Scorer"
+      },
+      "desc": {
+        "zh": "单局得分达到10000",
+        "en": "Reach 10000 score in a single run"
+      },
+      "trigger": "score",
+      "threshold": 10000,
+      "reward": {
+        "type": "coins",
+        "value": 50
+      },
+      "icon": "🏆"
+    },
+    {
+      "id": "score_50k",
+      "category": "score",
+      "name": {
+        "zh": "得分大师",
+        "en": "Score Master"
+      },
+      "desc": {
+        "zh": "单局得分达到50000",
+        "en": "Reach 50000 score in a single run"
+      },
+      "trigger": "score",
+      "threshold": 50000,
+      "reward": {
+        "type": "coins",
+        "value": 150
+      },
+      "icon": "🏆"
+    },
+    {
+      "id": "no_damage_60s",
+      "category": "skill",
+      "name": {
+        "zh": "完美闪避",
+        "en": "Perfect Dodge"
+      },
+      "desc": {
+        "zh": "60秒内不受任何伤害",
+        "en": "Survive 60 seconds without taking damage"
+      },
+      "trigger": "noDamageTime",
+      "threshold": 60,
+      "reward": {
+        "type": "shards",
+        "value": 10
+      },
+      "icon": "⚡"
+    },
+    {
+      "id": "no_damage_180s",
+      "category": "skill",
+      "name": {
+        "zh": "无伤战神",
+        "en": "Untouchable"
+      },
+      "desc": {
+        "zh": "180秒内不受任何伤害",
+        "en": "Survive 180 seconds without taking damage"
+      },
+      "trigger": "noDamageTime",
+      "threshold": 180,
+      "reward": {
+        "type": "shards",
+        "value": 30
+      },
+      "icon": "⚡"
+    },
+    {
+      "id": "set_complete_2",
+      "category": "equipment",
+      "name": {
+        "zh": "套装收集者",
+        "en": "Set Collector"
+      },
+      "desc": {
+        "zh": "激活任意2件套装",
+        "en": "Activate any 2-piece set"
+      },
+      "trigger": "setComplete",
+      "threshold": 2,
+      "reward": {
+        "type": "shards",
+        "value": 5
+      },
+      "icon": "💎"
+    },
+    {
+      "id": "set_complete_4",
+      "category": "equipment",
+      "name": {
+        "zh": "套装大师",
+        "en": "Set Master"
+      },
+      "desc": {
+        "zh": "激活任意4件套装",
+        "en": "Activate any 4-piece set"
+      },
+      "trigger": "setComplete",
+      "threshold": 4,
+      "reward": {
+        "type": "shards",
+        "value": 20
+      },
+      "icon": "💎"
+    },
+    {
+      "id": "fire_rate_cap",
+      "category": "upgrade",
+      "name": {
+        "zh": "极限攻速",
+        "en": "Max Fire Rate"
+      },
+      "desc": {
+        "zh": "攻速达到上限(0.55s)",
+        "en": "Reach maximum fire rate (0.55s)"
+      },
+      "trigger": "fireRateCap",
+      "threshold": 1,
+      "reward": {
+        "type": "shards",
+        "value": 15
+      },
+      "icon": "🔥"
+    },
+    {
+      "id": "level_max",
+      "category": "upgrade",
+      "name": {
+        "zh": "满级战士",
+        "en": "Max Level"
+      },
+      "desc": {
+        "zh": "达到最高等级",
+        "en": "Reach maximum level"
+      },
+      "trigger": "level",
+      "threshold": 30,
+      "reward": {
+        "type": "coins",
+        "value": 100
+      },
+      "icon": "⭐"
+    },
+    {
+      "id": "boss_kill_first",
+      "category": "combat",
+      "name": {
+        "zh": "首领猎人",
+        "en": "Boss Hunter"
+      },
+      "desc": {
+        "zh": "击杀第一个Boss",
+        "en": "Kill your first boss"
+      },
+      "trigger": "bossKill",
+      "threshold": 1,
+      "reward": {
+        "type": "coins",
+        "value": 50
+      },
+      "icon": "👹"
+    },
+    {
+      "id": "boss_kill_10",
+      "category": "combat",
+      "name": {
+        "zh": "首领克星",
+        "en": "Boss Slayer"
+      },
+      "desc": {
+        "zh": "累计击杀10个Boss",
+        "en": "Kill 10 bosses total"
+      },
+      "trigger": "bossKill",
+      "threshold": 10,
+      "reward": {
+        "type": "shards",
+        "value": 25
+      },
+      "icon": "👹"
+    },
+    {
+      "id": "elite_kill_first",
+      "category": "combat",
+      "name": {
+        "zh": "精英猎手",
+        "en": "Elite Hunter"
+      },
+      "desc": {
+        "zh": "击杀第一个精英敌人",
+        "en": "Kill your first elite enemy"
+      },
+      "trigger": "eliteKill",
+      "threshold": 1,
+      "reward": {
+        "type": "coins",
+        "value": 20
+      },
+      "icon": "⚡"
+    },
+    {
+      "id": "elite_kill_50",
+      "category": "combat",
+      "name": {
+        "zh": "精英克星",
+        "en": "Elite Slayer"
+      },
+      "desc": {
+        "zh": "累计击杀50个精英敌人",
+        "en": "Kill 50 elite enemies total"
+      },
+      "trigger": "eliteKill",
+      "threshold": 50,
+      "reward": {
+        "type": "shards",
+        "value": 20
+      },
+      "icon": "⚡"
+    },
+    {
+      "id": "equipment_legend",
+      "category": "equipment",
+      "name": {
+        "zh": "传说收藏家",
+        "en": "Legend Collector"
+      },
+      "desc": {
+        "zh": "获得第一件传说装备",
+        "en": "Obtain your first Legend equipment"
+      },
+      "trigger": "equipmentRarity",
+      "threshold": 1,
+      "meta": {
+        "rarity": "Legend"
+      },
+      "reward": {
+        "type": "shards",
+        "value": 10
+      },
+      "icon": "✨"
+    },
+    {
+      "id": "daily_complete",
+      "category": "challenge",
+      "name": {
+        "zh": "每日挑战者",
+        "en": "Daily Challenger"
+      },
+      "desc": {
+        "zh": "完成一次每日试炼",
+        "en": "Complete a daily challenge"
+      },
+      "trigger": "dailyComplete",
+      "threshold": 1,
+      "reward": {
+        "type": "coins",
+        "value": 30
+      },
+      "icon": "📅"
+    }
+  ],
+  "categories": {
+    "combat": {
+      "zh": "战斗",
+      "en": "Combat"
+    },
+    "survival": {
+      "zh": "生存",
+      "en": "Survival"
+    },
+    "score": {
+      "zh": "得分",
+      "en": "Score"
+    },
+    "skill": {
+      "zh": "技巧",
+      "en": "Skill"
+    },
+    "equipment": {
+      "zh": "装备",
+      "en": "Equipment"
+    },
+    "upgrade": {
+      "zh": "升级",
+      "en": "Upgrade"
+    },
+    "challenge": {
+      "zh": "挑战",
+      "en": "Challenge"
+    }
+  }
+}

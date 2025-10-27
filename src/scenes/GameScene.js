@@ -24,6 +24,9 @@ import { ReplaySystem } from '../systems/ReplaySystem.js';
 import { EquipmentSystem } from '../systems/EquipmentSystem.js';
 import { SetBonusSystem } from '../systems/SetBonusSystem.js';
 import { LoadoutSystem } from '../systems/LoadoutSystem.js';
+import { AchievementsSystem } from '../systems/AchievementsSystem.js';
+import { LeaderboardSystem } from '../systems/LeaderboardSystem.js';
+import { InputRemapSystem } from '../systems/InputRemapSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -90,6 +93,28 @@ export class GameScene extends Phaser.Scene {
       this.setBonusSystem = new SetBonusSystem(this, {}); // v7
       this.loadoutSystem = new LoadoutSystem(this, {}); // v7
     });
+    
+    // v8: 成就系统
+    AchievementsSystem.loadConfig().then(achieveConfig => {
+      this.achievementsSystem = new AchievementsSystem(this, achieveConfig);
+      console.log('[GameScene] Achievements system initialized');
+    }).catch(err => {
+      console.error('[GameScene] Failed to load achievements config:', err);
+      this.achievementsSystem = new AchievementsSystem(this, {});
+    });
+    
+    // v8: 排行榜系统
+    LeaderboardSystem.loadConfig().then(lbConfig => {
+      this.leaderboardSystem = new LeaderboardSystem(this, lbConfig);
+      this.leaderboardSystem.load(); // 从本地存储加载
+      console.log('[GameScene] Leaderboard system initialized');
+    }).catch(err => {
+      console.error('[GameScene] Failed to load leaderboard config:', err);
+      this.leaderboardSystem = new LeaderboardSystem(this, {});
+    });
+    
+    // v8: 输入映射系统
+    this.inputRemapSystem = new InputRemapSystem(this);
     
     // v6: 应用每日试炼规则
     this.dailyChallenge.applyRules();
@@ -234,7 +259,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
-    this.bgStars.tilePositionY -= delta * 0.02 * this.lowPowerFactor;
+    // v8: 更新成就系统（无伤计时）
+    if (this.achievementsSystem) {
+      this.achievementsSystem.update(delta);
+    }
+    
+    // v8: 更新输入系统
+    if (this.inputRemapSystem) {
+      this.inputRemapSystem.update();
+    }
+    
     if (GameState.globals.isPaused) {
       this.qaConsole.updateMetrics(delta);
       return;

@@ -1,9 +1,10 @@
 import { GameState } from '../state/GameState.js';
 
 /**
- * v6: 每日试炼系统
+ * v6+v8: 每日试炼系统
  * 基于日期生成每日规则（1~2条），影响游戏平衡
- * 例如：高密度小怪、弱穿透、强化反弹等
+ * 例如：高密度小怪、弱穿透、强化反弹、精英密度+、玩家HP-等
+ * v8: 新增规则类型与离线榜单集成
  */
 export class DailyChallengeSystem {
   constructor(scene, config) {
@@ -13,6 +14,15 @@ export class DailyChallengeSystem {
     this.rulesPool = this.config.rulesPool || this.getDefaultRulesPool();
     this.todayRules = [];
     this.todaySeed = 0;
+    
+    // v8: 记录活跃状态（用于榜单绑定）
+    if (!GameState.dailyChallenge) {
+      GameState.dailyChallenge = {
+        active: false,
+        seed: null,
+        rules: []
+      };
+    }
     
     if (this.enabled) {
       this.generateDailyRules();
@@ -90,6 +100,31 @@ export class DailyChallengeSystem {
             scene.waveSystem.waveInterval = 20000;
           }
         }
+      },
+      // v8: 新增规则
+      {
+        id: 'elite_density_plus',
+        name: '精英密度+',
+        desc: '精英密度上调 ×1.8，掉率微升 +10%',
+        apply: (scene) => {
+          if (scene.eliteSystem) {
+            scene.eliteSystem.spawnChance *= 1.8;
+            scene.eliteSystem.lootBonus = (scene.eliteSystem.lootBonus || 0) + 0.10;
+          }
+        }
+      },
+      {
+        id: 'player_hp_minus',
+        name: '玩家HP-',
+        desc: '玩家生命削减 ×0.5（最小 1HP）',
+        apply: (scene) => {
+          if (scene.player && GameState.player) {
+            const currentHP = GameState.player.hp || 100;
+            GameState.player.maxHP = Math.max(1, Math.floor(currentHP * 0.5));
+            GameState.player.hp = GameState.player.maxHP;
+            console.log('[DailyChallenge] Player HP reduced to:', GameState.player.maxHP);
+          }
+        }
       }
     ];
   }
@@ -118,6 +153,15 @@ export class DailyChallengeSystem {
   applyRules() {
     if (!this.enabled || this.todayRules.length === 0) return;
     
+    // v8: 标记每日试炼活跃
+    GameState.dailyChallenge.active = true;
+    GameState.dailyChallenge.seed = this.todaySeed;
+    GameState.dailyChallenge.rules = this.todayRules.map(r => ({
+      id: r.id,
+      name: r.name,
+      desc: r.desc
+    }));
+    
     this.todayRules.forEach(rule => {
       if (rule.apply) {
         rule.apply(this.scene);
@@ -132,7 +176,9 @@ export class DailyChallengeSystem {
       return '今日无特殊规则';
     }
     
-    return this.todayRules.map(r => `${r.name}: ${r.desc}`).join('\n');
+    // v8: 添加种子信息
+    const rulesText = this.todayRules.map(r => `${r.name}: ${r.desc}`).join('\n');
+    return `【每日试炼 #${this.todaySeed}】\n${rulesText}`;
   }
   
   getRulesList() {
@@ -176,6 +222,28 @@ export class DailyChallengeSystem {
     if (this.hasRule('strong_rebound') && type === 'rebound') {
       return 0.95 / 0.85; // 从 0.85 升至 0.95
     }
+    // v8: 新规则修正
+    if (this.hasRule('elite_density_plus') && type === 'eliteSpawn') {
+      return 1.8;
+    }
+    if (this.hasRule('elite_density_plus') && type === 'eliteLoot') {
+      return 1.10;
+    }
+    if (this.hasRule('player_hp_minus') && type === 'playerHP') {
+      return 0.5;
+    }
     return 1.0;
+  }
+  
+  // v8: 获取今日种子（用于榜单绑定）
+  getTodaySeed() {
+    return this.todaySeed;
+  }
+  
+  // v8: 停用每日试炼（退出每日试炼模式）
+  deactivate() {
+    if (GameState.dailyChallenge) {
+      GameState.dailyChallenge.active = false;
+    }
   }
 }

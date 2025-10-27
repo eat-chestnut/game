@@ -1,0 +1,42 @@
+{
+  "version": "v8.0",
+  "config": {
+    "maxEntries": {
+      "daily": 10,
+      "weekly": 20,
+      "allTime": 50
+    },
+    "sortBy": "score",
+    "sortOrder": "desc"
+  },
+  "daily": [],
+  "weekly": [],
+  "allTime": [],
+  "dailyChallenge": {},
+  "i18n": {
+    "zh": {
+      "daily": "今日排行",
+      "weekly": "本周排行",
+      "allTime": "历史最佳",
+      "rank": "排名",
+      "player": "玩家",
+      "score": "得分",
+      "wave": "波次",
+      "seed": "种子",
+      "replay": "回放",
+      "date": "日期"
+    },
+    "en": {
+      "daily": "Today",
+      "weekly": "This Week",
+      "allTime": "All Time",
+      "rank": "Rank",
+      "player": "Player",
+      "score": "Score",
+      "wave": "Wave",
+      "seed": "Seed",
+      "replay": "Replay",
+      "date": "Date"
+    }
+  }
+}
