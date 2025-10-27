@@ -1,0 +1,277 @@
+{
+  "version": "v6.1",
+  "slots": [
+    "Weapon",
+    "Core",
+    "Module",
+    "Charm"
+  ],
+  "rarity": [
+    {
+      "id": "Common",
+      "color": "#C8D1DC",
+      "tier": 1,
+      "rolls": 1,
+      "drop": 0.55
+    },
+    {
+      "id": "Rare",
+      "color": "#5BC0EB",
+      "tier": 2,
+      "rolls": 2,
+      "drop": 0.3
+    },
+    {
+      "id": "Epic",
+      "color": "#E76BF3",
+      "tier": 3,
+      "rolls": 3,
+      "drop": 0.12
+    },
+    {
+      "id": "Legend",
+      "color": "#FFB020",
+      "tier": 4,
+      "rolls": 4,
+      "drop": 0.03
+    }
+  ],
+  "baseStats": {
+    "Weapon": {
+      "atkScale": 1.0
+    },
+    "Core": {
+      "hpScale": 1.0
+    },
+    "Module": {},
+    "Charm": {}
+  },
+  "affixes": {
+    "flatDamage": {
+      "min": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "max": [
+        3,
+        5,
+        8,
+        12
+      ]
+    },
+    "damageMulPct": {
+      "min": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "max": [
+        6,
+        9,
+        12,
+        15
+      ]
+    },
+    "fireRatePct": {
+      "min": [
+        -8,
+        -10,
+        -12,
+        -14
+      ],
+      "max": [
+        -4,
+        -6,
+        -8,
+        -10
+      ]
+    },
+    "penetrationPlus": {
+      "min": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "max": [
+        1,
+        1,
+        2,
+        3
+      ]
+    },
+    "reboundPlus": {
+      "min": [
+        0,
+        1,
+        1,
+        1
+      ],
+      "max": [
+        1,
+        1,
+        2,
+        2
+      ]
+    },
+    "splitChildPct": {
+      "min": [
+        10,
+        12,
+        14,
+        16
+      ],
+      "max": [
+        14,
+        16,
+        18,
+        20
+      ]
+    },
+    "aoeScalePct": {
+      "min": [
+        6,
+        8,
+        10,
+        12
+      ],
+      "max": [
+        10,
+        12,
+        14,
+        16
+      ]
+    },
+    "droneDmgPct": {
+      "min": [
+        6,
+        8,
+        10,
+        12
+      ],
+      "max": [
+        10,
+        12,
+        14,
+        16
+      ]
+    },
+    "shieldCDPct": {
+      "min": [
+        -6,
+        -8,
+        -10,
+        -12
+      ],
+      "max": [
+        -10,
+        -12,
+        -14,
+        -16
+      ]
+    },
+    "lootChancePct": {
+      "min": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "max": [
+        4,
+        5,
+        6,
+        8
+      ]
+    }
+  },
+  "craft": {
+    "salvagePerRarity": {
+      "Common": 1,
+      "Rare": 3,
+      "Epic": 9,
+      "Legend": 27
+    },
+    "forgeCosts": {
+      "Rare": 5,
+      "Epic": 15,
+      "Legend": 45
+    },
+    "rerollCost": 2
+  },
+  "drop": {
+    "baseChance": 0.12,
+    "bossBonus": 0.6,
+    "eliteBonus": 0.18
+  },
+  "ui": {
+    "maxBag": 24,
+    "autoSalvage": [
+      "Common"
+    ]
+  },
+  "rules": {
+    "capFireRate": 0.55,
+    "maxPenetrationFromEquip": 3,
+    "maxReboundFromEquip": 2,
+    "maxTotalDamageMulFromEquip": 0.3,
+    "maxSplitChildBonus": 0.3
+  },
+  "i18n": {
+    "zh": {
+      "slots": {
+        "Weapon": "武器",
+        "Core": "核心",
+        "Module": "模块",
+        "Charm": "护符"
+      },
+      "rarity": {
+        "Common": "普通",
+        "Rare": "稀有",
+        "Epic": "史诗",
+        "Legend": "传说"
+      },
+      "affixes": {
+        "flatDamage": "固定伤害 +{v}",
+        "damageMulPct": "总伤害 +{v}%",
+        "fireRatePct": "射击间隔 {v}%",
+        "penetrationPlus": "穿透 +{v}",
+        "reboundPlus": "反弹 +{v}",
+        "splitChildPct": "分裂小弹伤害 +{v}%",
+        "aoeScalePct": "范围伤害 +{v}%",
+        "droneDmgPct": "无人机伤害 +{v}%",
+        "shieldCDPct": "护盾冷却 {v}%",
+        "lootChancePct": "掉落概率 +{v}%"
+      }
+    },
+    "en": {
+      "slots": {
+        "Weapon": "Weapon",
+        "Core": "Core",
+        "Module": "Module",
+        "Charm": "Charm"
+      },
+      "rarity": {
+        "Common": "Common",
+        "Rare": "Rare",
+        "Epic": "Epic",
+        "Legend": "Legend"
+      },
+      "affixes": {
+        "flatDamage": "Flat Damage +{v}",
+        "damageMulPct": "Total Damage +{v}%",
+        "fireRatePct": "Fire Interval {v}%",
+        "penetrationPlus": "Penetration +{v}",
+        "reboundPlus": "Rebound +{v}",
+        "splitChildPct": "Split Child Damage +{v}%",
+        "aoeScalePct": "AOE Damage +{v}%",
+        "droneDmgPct": "Drone Damage +{v}%",
+        "shieldCDPct": "Shield Cooldown {v}%",
+        "lootChancePct": "Loot Chance +{v}%"
+      }
+    }
+  }
+}

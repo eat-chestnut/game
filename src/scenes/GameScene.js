@@ -18,6 +18,10 @@ import { BossSystem } from '../systems/BossSystem.js';
 import { EliteSystem } from '../systems/EliteSystem.js';
 import { TutorialSystem } from '../systems/TutorialSystem.js';
 import { ShopSystem } from '../systems/ShopSystem.js';
+import { DailyChallengeSystem } from '../systems/DailyChallengeSystem.js';
+import { AccessibilitySystem } from '../systems/AccessibilitySystem.js';
+import { ReplaySystem } from '../systems/ReplaySystem.js';
+import { EquipmentSystem } from '../systems/EquipmentSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -66,6 +70,29 @@ export class GameScene extends Phaser.Scene {
     this.bossSystem = new BossSystem(this, GameState.config);
     this.eliteSystem = new EliteSystem(this, GameState.config);
     this.tutorialSystem = new TutorialSystem(this, GameState.config);
+    
+    // v6: 新系统
+    this.dailyChallenge = new DailyChallengeSystem(this, GameState.config);
+    this.accessibility = new AccessibilitySystem(this, GameState.config);
+    this.replaySystem = new ReplaySystem(this, GameState.config);
+    
+    // v6.1: 装备系统
+    this.loadEquipmentConfig().then(equipConfig => {
+      this.equipmentSystem = new EquipmentSystem(this, equipConfig);
+      console.log('[GameScene] Equipment system initialized');
+    }).catch(err => {
+      console.error('[GameScene] Failed to load equipment config:', err);
+      this.equipmentSystem = new EquipmentSystem(this, {});
+    });
+    
+    // v6: 应用每日试炼规则
+    this.dailyChallenge.applyRules();
+    
+    // v6: 开始回放录制
+    if (this.replaySystem.enabled) {
+      this.replaySystem.startRecording();
+    }
+    
     this.setupSpawner();
     this.setupCollisions();
     this.setupWorldBounds();
@@ -389,6 +416,11 @@ export class GameScene extends Phaser.Scene {
     const dropX = enemy.x;
     const dropY = enemy.y;
     
+    // v6: 回放记录
+    if (this.replaySystem) {
+      this.replaySystem.recordEnemyKilled(enemy);
+    }
+    
     // Boss 特殊处理
     if (isBoss) {
       this.bossSystem.onBossKilled(enemy);
@@ -401,8 +433,20 @@ export class GameScene extends Phaser.Scene {
     
     this.releaseEnemy(enemy);
     this.audio.playExplosion();
+    
+    // v6: 命中反馈（如果启用）
+    if (this.accessibility) {
+      this.accessibility.triggerHitFeedback(dropX, dropY, false);
+    }
+    
     this.skillSystem.onEnemyKilled();
     this.lootSystem.attemptDrop(dropX, dropY);
+    
+    // v6.1: 装备掉落
+    if (this.equipmentSystem) {
+      this.equipmentSystem.tryDrop({ x: dropX, y: dropY, isBoss, isElite });
+    }
+    
     this.achievementSystem.check({
       totalKills: GameState.stats.totalKills,
       wave: GameState.globals.wave,
@@ -515,14 +559,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleBlur() {
-    this.pauseSystem.setPaused(true);
+    // v6: 使用 reason 参数
+    this.pauseSystem.setPaused(true, 'blur');
   }
 
   handleFocus() {
-    if (!this.skillSystem?.panelOpen) {
-      this.pauseSystem.setPaused(false);
-    }
     this.audio.resume();
+    // v6: 失去焦点后恢复
+    this.pauseSystem.setPaused(false, 'blur');
+  }
+  
+  // v6.1: 加载装备配置
+  async loadEquipmentConfig() {
+    try {
+      const response = await fetch('equipment_config.json');
+      if (!response.ok) throw new Error('Failed to fetch equipment config');
+      return await response.json();
+    } catch (error) {
+      console.error('[GameScene] Equipment config load failed:', error);
+      return {};
+    }
   }
 
   endGame(reason) {

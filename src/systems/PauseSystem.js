@@ -5,6 +5,8 @@ export class PauseSystem {
     this.scene = scene;
     this.pauseables = [];
     this.timerRegistry = new Set(); // 计时器去重守护
+    this.pauseStackCount = 0; // v6: 嵌套暂停计数
+    this.pauseReasons = new Set(); // v6: 暂停原因追踪（'panel'/'tutorial'/'boss'/'blur'）
   }
 
   registerTimer(event) {
@@ -29,36 +31,57 @@ export class PauseSystem {
     this.pauseables = [];
   }
 
-  setPaused(paused) {
-    // 统一通过此方法读写暂停状态
-    if (GameState.globals.isPaused === paused) {
+  setPaused(paused, reason = 'manual') {
+    // v6: 支持嵌套暂停计数
+    if (paused) {
+      this.pauseStackCount++;
+      this.pauseReasons.add(reason);
+    } else {
+      this.pauseStackCount = Math.max(0, this.pauseStackCount - 1);
+      this.pauseReasons.delete(reason);
+    }
+    
+    // 只有当计数归零时才真正恢复
+    const shouldBePaused = this.pauseStackCount > 0;
+    
+    if (GameState.globals.isPaused === shouldBePaused) {
       // 已经是目标状态，避免重复操作
       return;
     }
     
-    GameState.globals.isPaused = paused;
+    GameState.globals.isPaused = shouldBePaused;
     
     if (this.scene.physics?.world) {
-      this.scene.physics.world.isPaused = paused;
+      this.scene.physics.world.isPaused = shouldBePaused;
     }
     
     // 清理已失效的计时器
     this.pauseables = this.pauseables.filter(evt => {
-      if (!evt || !evt.paused !== undefined) {
+      if (!evt || evt.paused === undefined) {
         this.timerRegistry.delete(evt);
         return false;
       }
-      evt.paused = paused;
+      evt.paused = shouldBePaused;
       return true;
     });
     
     if (this.scene.tweens) {
-      this.scene.tweens.timeScale = paused ? 0 : 1;
+      this.scene.tweens.timeScale = shouldBePaused ? 0 : 1;
     }
     
-    // 日志记录，方便调试竞态问题
+    // v6: 详细日志记录
     if (window.DEBUG_PAUSE) {
-      console.log(`[PauseSystem] setPaused(${paused}) - active timers: ${this.pauseables.length}`);
+      console.log(`[PauseSystem] setPaused(${paused}, "${reason}") - stack: ${this.pauseStackCount}, reasons: [${Array.from(this.pauseReasons).join(', ')}], active timers: ${this.pauseables.length}`);
+    }
+  }
+  
+  // v6: 重置暂停计数（用于场景切换）
+  resetPauseStack() {
+    this.pauseStackCount = 0;
+    this.pauseReasons.clear();
+    GameState.globals.isPaused = false;
+    if (this.scene.physics?.world) {
+      this.scene.physics.world.isPaused = false;
     }
   }
 

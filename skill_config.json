@@ -1,5 +1,5 @@
 {
-  "version": "v5",
+  "version": "v6.1",
   "balance": {
     "baseDamage": 10,
     "fireRate": 2.0,
@@ -52,6 +52,26 @@
         {"title": "暂停与设置", "body": "点击右下暂停或打开设置调整语言/音量"}
       ]
     }
+  },
+  "dailyChallenge": {
+    "enabled": true,
+    "perDaySeed": true
+  },
+  "gachaWeights": {
+    "base": 1.0,
+    "pityStep": 0.15,
+    "pityMax": 1.8
+  },
+  "accessibility": {
+    "highContrast": false,
+    "colorBlind": "off",
+    "screenShake": true,
+    "particleIntensity": 1.0
+  },
+  "replay": {
+    "enabled": true,
+    "windowSec": 60,
+    "export": true
   },
   "i18n": {
     "zh": {

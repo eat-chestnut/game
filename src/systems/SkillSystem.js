@@ -25,6 +25,24 @@ export class SkillSystem {
     this.panelOpen = false;
     this.panelContainer = null;
     this.skillConfig = GameState.config;
+    
+    // v6: 卡池加权配置
+    this.gachaConfig = this.skillConfig?.gachaWeights || {
+      base: 1.0,
+      pityStep: 0.15,
+      pityMax: 1.8
+    };
+    
+    // v6: 初始化技能抽取追踪
+    if (!GameState.skillGacha) {
+      GameState.skillGacha = {};
+      this.skillConfig?.skills?.forEach(skill => {
+        GameState.skillGacha[skill.id] = {
+          roundsSinceLastPicked: 0,
+          totalPicked: 0
+        };
+      });
+    }
   }
 
   getSkillDef(id) {
@@ -59,7 +77,7 @@ export class SkillSystem {
   openSkillPanel() {
     if (this.panelOpen) return;
     this.panelOpen = true;
-    this.scene.pauseSystem.setPaused(true);
+    this.scene.pauseSystem.setPaused(true, 'panel');
     const overlay = this.scene.add.rectangle(360, 800, 720, 1600, 0x000000, 0.65).setInteractive();
     overlay.setDepth(390);
     const panel = this.uiFactory.createPanel(620, 720, 'panelStrong');
@@ -79,7 +97,7 @@ export class SkillSystem {
   }
 
   pickSkillOptions() {
-    // 未满级池：不放回抽取
+    // v6: 未满级池 + 加权抽取
     const available = this.skillConfig?.skills?.filter(skill => {
       const level = GameState.skillState[skill.id] ?? 0;
       return level < skill.maxLevel;
@@ -88,11 +106,41 @@ export class SkillSystem {
     const picks = [];
     const pool = [...available]; // 复制池
     
-    // 不放回抽取，最多3个
+    // v6: 计算每个技能的加权
+    const weights = pool.map(skill => {
+      const gacha = GameState.skillGacha[skill.id] || { roundsSinceLastPicked: 0 };
+      const rounds = gacha.roundsSinceLastPicked;
+      
+      // 基础权重 + 保底加权
+      let weight = this.gachaConfig.base;
+      if (rounds > 0) {
+        weight += rounds * this.gachaConfig.pityStep;
+        weight = Math.min(weight, this.gachaConfig.pityMax);
+      }
+      
+      return weight;
+    });
+    
+    // v6: 加权抽取，不放回，最多3个
     while (picks.length < 3 && pool.length > 0) {
-      const idx = Math.floor(Math.random() * pool.length);
-      picks.push(pool.splice(idx, 1)[0]);
+      const idx = this.weightedRandom(weights);
+      const picked = pool.splice(idx, 1)[0];
+      weights.splice(idx, 1);
+      picks.push(picked);
+      
+      // 更新抽取记录
+      if (GameState.skillGacha[picked.id]) {
+        GameState.skillGacha[picked.id].roundsSinceLastPicked = 0;
+        GameState.skillGacha[picked.id].totalPicked += 1;
+      }
     }
+    
+    // 其他未被抽中的技能，轮数 +1
+    available.forEach(skill => {
+      if (!picks.includes(skill) && GameState.skillGacha[skill.id]) {
+        GameState.skillGacha[skill.id].roundsSinceLastPicked += 1;
+      }
+    });
     
     // 如果不足3个且所有技能都满级，用满级项填充（灰置）
     if (picks.length < 3) {
@@ -107,7 +155,30 @@ export class SkillSystem {
       }
     }
     
+    // v6: 记录加权信息（调试用）
+    if (window.DEBUG_GACHA) {
+      console.log('[SkillSystem] Gacha weights:', picks.map(p => ({
+        skill: p.id,
+        rounds: GameState.skillGacha[p.id]?.roundsSinceLastPicked || 0
+      })));
+    }
+    
     return picks;
+  }
+  
+  // v6: 加权随机抽取
+  weightedRandom(weights) {
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let random = Math.random() * totalWeight;
+    
+    for (let i = 0; i < weights.length; i++) {
+      random -= weights[i];
+      if (random <= 0) {
+        return i;
+      }
+    }
+    
+    return weights.length - 1; // fallback
   }
 
   createSkillCard(skillDef, index) {
@@ -158,14 +229,14 @@ export class SkillSystem {
       this.panelContainer.destroy(true);
       this.panelContainer = null;
     }
-    this.scene.pauseSystem.setPaused(false);
+    this.scene.pauseSystem.setPaused(false, 'panel');
   }
   
   openBossChestPanel() {
     // v5: Boss 宝箱 2选 1，不计入普通升级
     if (this.panelOpen) return;
     this.panelOpen = true;
-    this.scene.pauseSystem.setPaused(true);
+    this.scene.pauseSystem.setPaused(true, 'boss');
     
     const overlay = this.scene.add.rectangle(360, 800, 720, 1600, 0x000000, 0.75).setInteractive();
     overlay.setDepth(390);
