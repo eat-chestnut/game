@@ -8,6 +8,49 @@ and uses [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [v9.1.0] - 2025-01-XX
+
+### Added
+- **元素状态系统**: Burn(灰烧)/Freeze(冰冻)/Root(缠绕)/Shatter(碎裂)/Expose(破甲) 5种状态。
+- **组合技系统**: 水→火解冻炸裂、木→土定身碎裂、金→火破甲灰烧。
+- **通用宝石**: Quartz(白晶)，任意槽位可用，加成状态效果。
+- **6槽宝石系统**: 每件装备最多6个插槽，根据稀有度+等级动态解锁。
+- **状态加成词缀**: statusDotPct/statusDurationPct/statusVulnPct/statusSlowCapPct/statusExplodePowerPct。
+- **skill_config.json**: 添加 statusDefaults 和 comboRules 配置。
+
+### Changed
+- **StatusSystem**: 管理元素状态，处理DoT/减速/易伤计算。
+- **ComboEngine**: 检测并触发组合技，支持配置化规则。
+- **GemSystem**: 支持6槽动态解锁，Common=2, Rare=3, Epic=4, Legend=5, Lv≥8 Legend=6。
+- **GameScene**: 集成状态系统和组合技引擎。
+
+### Fixed
+- 状态互斥：灰烧与冰冻不能共存。
+- 解冻机制：冰冻被火击中解冻且火伤-20%，高伤触发炸裂。
+- 碎裂标记仅消耗一次。
+- 破甲不叠层，仅刷新持续时间。
+- 灰烧DoT计算正确，Boss修正×0.6。
+
+### Performance
+- 状态更新优化，仅检查活跃状态。
+- 组合技事件窗口自动清理，保持3s内事件。
+- 宝石插槽检查优化，缓存解锁数量。
+
+### QA
+- **状态系统**: 验证灰烧/冰冻/缠绕/碎裂/破甲效果。
+- **组合技**: 验证水→火/木→土/金→火组合。
+- **6槽宝石**: 验证动态解锁机制。
+- **通用宝石**: 验证任意槽位镶嵌。
+- **性能**: 500敌+状态 P95≥50FPS。
+
+### Migration
+- **v9→v9.1 存档迁移**:
+  - 装备新增 unlockedSocketCount 字段。
+  - 新增 GameState.statusSettings 字段。
+  - 技能树支持状态配置。
+
+---
+
 ## [v9.0.0] - 2025-01-XX
 
 ### Added

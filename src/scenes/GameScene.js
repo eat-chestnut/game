@@ -30,6 +30,8 @@ import { InputRemapSystem } from '../systems/InputRemapSystem.js';
 import { EquipmentUpgradeSystem } from '../systems/EquipmentUpgradeSystem.js';
 import { GemSystem } from '../systems/GemSystem.js';
 import { ElementSystem } from '../systems/ElementSystem.js';
+import { StatusSystem } from '../systems/StatusSystem.js';
+import { ComboEngine } from '../systems/ComboEngine.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -84,23 +86,34 @@ export class GameScene extends Phaser.Scene {
     this.accessibility = new AccessibilitySystem(this, GameState.config);
     this.replaySystem = new ReplaySystem(this, GameState.config);
     
-    // v6.1+v7+v9: 装备系统
+    // v6.1+v7+v9+v9.1: 装备系统
     this.loadEquipmentConfig().then(equipConfig => {
       this.equipmentSystem = new EquipmentSystem(this, equipConfig);
       this.setBonusSystem = new SetBonusSystem(this, equipConfig); // v7
       this.loadoutSystem = new LoadoutSystem(this, equipConfig); // v7
       this.equipmentUpgradeSystem = new EquipmentUpgradeSystem(this, equipConfig); // v9
-      this.gemSystem = new GemSystem(this, equipConfig); // v9
+      this.gemSystem = new GemSystem(this, equipConfig); // v9+v9.1
       this.elementSystem = new ElementSystem(this, equipConfig); // v9
-      console.log('[GameScene] Equipment system initialized (v9: upgrade, gems, elements)');
+      console.log('[GameScene] Equipment system initialized (v9.1: 6-slot gems)');
     }).catch(err => {
       console.error('[GameScene] Failed to load equipment config:', err);
       this.equipmentSystem = new EquipmentSystem(this, {});
       this.setBonusSystem = new SetBonusSystem(this, {}); // v7
       this.loadoutSystem = new LoadoutSystem(this, {}); // v7
       this.equipmentUpgradeSystem = new EquipmentUpgradeSystem(this, {}); // v9
-      this.gemSystem = new GemSystem(this, {}); // v9
+      this.gemSystem = new GemSystem(this, {}); // v9+v9.1
       this.elementSystem = new ElementSystem(this, {}); // v9
+    });
+    
+    // v9.1: 状态系统和组合技
+    this.loadSkillConfig().then(skillConfig => {
+      this.statusSystem = new StatusSystem(this, skillConfig);
+      this.comboEngine = new ComboEngine(this, skillConfig);
+      console.log('[GameScene] Status and combo systems initialized');
+    }).catch(err => {
+      console.error('[GameScene] Failed to load skill config:', err);
+      this.statusSystem = new StatusSystem(this, {});
+      this.comboEngine = new ComboEngine(this, {});
     });
     
     // v8: 成就系统
@@ -276,6 +289,11 @@ export class GameScene extends Phaser.Scene {
     // v8: 更新输入系统
     if (this.inputRemapSystem) {
       this.inputRemapSystem.update();
+    }
+    
+    // v9.1: 更新状态系统 (DoT/冰冻/缠绕等)
+    if (this.statusSystem) {
+      this.statusSystem.update(delta);
     }
     
     if (GameState.globals.isPaused) {

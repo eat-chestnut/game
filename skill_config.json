@@ -89,6 +89,74 @@
       }
     }
   },
+  "statusDefaults": {
+    "burn": {
+      "duration": 2.0,
+      "tickInterval": 0.5,
+      "damageRatio": 0.4,
+      "bossMultiplier": 0.6
+    },
+    "freeze": {
+      "duration": 1.25,
+      "bossDuration": 0.8,
+      "bossSlowPct": 0.4
+    },
+    "root": {
+      "duration": 1.0,
+      "bossSlowPct": 0.6
+    },
+    "shatter": {
+      "bonusPct": 0.15,
+      "consumeOnHit": true
+    },
+    "expose": {
+      "duration": 4.0,
+      "bossDuration": 6.0,
+      "vulnerabilityPct": 0.12,
+      "maxStacks": 1
+    },
+    "fire": {
+      "explodeThreshold": 100,
+      "explodeMultiplier": 0.35,
+      "bossExplodeMultiplier": 0.2,
+      "unfreezeDebuff": -0.2
+    }
+  },
+  "comboRules": [
+    {
+      "id": "water_fire_explode",
+      "name": { "zh": "解冻炸裂", "en": "Thaw Blast" },
+      "sequence": ["freeze", "fire"],
+      "condition": "fire_damage >= explodeThreshold",
+      "effect": {
+        "type": "aoe_damage",
+        "multiplier": "fire.explodeMultiplier",
+        "radius": 80,
+        "unfreeze": true,
+        "debuff": "fire.unfreezeDebuff"
+      }
+    },
+    {
+      "id": "wood_earth_shatter",
+      "name": { "zh": "定身碎裂", "en": "Rooted Shatter" },
+      "sequence": ["root", "earth"],
+      "effect": {
+        "type": "damage_bonus",
+        "multiplier": "shatter.bonusPct",
+        "consumeShatter": true
+      }
+    },
+    {
+      "id": "metal_fire_burn",
+      "name": { "zh": "破甲灼烧", "en": "Exposed Burn" },
+      "sequence": ["expose", "burn"],
+      "effect": {
+        "type": "dot_bonus",
+        "multiplier": "expose.vulnerabilityPct",
+        "applyToTicks": true
+      }
+    }
+  ],
   "skills": [
     {"id": "atk_speed", "name": "攻速提升", "type": "bullet", "maxLevel": 4, "stacking": "interval_multiplicative", "perLevel": {"fireRateMultiplier": 0.9}, "constraints": {"minFireRate": 0.6}},
     {"id": "atk_power", "name": "攻击力提升", "type": "bullet", "maxLevel": 4, "stacking": "multiplicative", "perLevel": {"damageMultiplier": 1.08}},

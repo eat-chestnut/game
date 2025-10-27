@@ -1,5 +1,5 @@
 {
-  "version": "v9.0",
+  "version": "v9.1",
   "slots": [
     "Weapon",
     "Core",
@@ -186,6 +186,76 @@
         6,
         8
       ]
+    },
+    "statusDotPct": {
+      "min": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "max": [
+        4,
+        6,
+        8,
+        10
+      ]
+    },
+    "statusDurationPct": {
+      "min": [
+        3,
+        5,
+        7,
+        9
+      ],
+      "max": [
+        5,
+        8,
+        11,
+        14
+      ]
+    },
+    "statusVulnPct": {
+      "min": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "max": [
+        3,
+        5,
+        7,
+        9
+      ]
+    },
+    "statusSlowCapPct": {
+      "min": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "max": [
+        5,
+        7,
+        9,
+        11
+      ]
+    },
+    "statusExplodePowerPct": {
+      "min": [
+        4,
+        6,
+        8,
+        10
+      ],
+      "max": [
+        6,
+        9,
+        12,
+        15
+      ]
     }
   },
   "craft": {
@@ -212,7 +282,8 @@
     "autoSalvage": [
       "Common"
     ],
-    "lootBeams": true
+    "lootBeams": true,
+    "maxSocketsPerItem": 6
   },
   "loadouts": {
     "count": 3
@@ -364,6 +435,16 @@
         "stats": {
           "fireRatePct": [-1, -2, -3, -4],
           "damageMulPct": [1, 2, 3, 4]
+        }
+      },
+      "Quartz": {
+        "element": "universal",
+        "name": { "zh": "白晶", "en": "Quartz" },
+        "color": "#E5E7EB",
+        "stats": {
+          "statusDotPct": [3, 6, 9, 12],
+          "statusDurationPct": [4, 8, 12, 16],
+          "statusVulnPct": [2, 4, 6, 8]
         }
       }
     },

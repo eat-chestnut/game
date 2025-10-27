@@ -1,8 +1,9 @@
 import { GameState } from '../state/GameState.js';
 
 /**
- * v9: 宝石系统
- * 管理宝石的镶嵌、拆卸、合成，支持五行元素
+ * v9+v9.1: 宝石系统
+ * 管理宝石的镶嵌、拆卨、合成，支持五行元素
+ * v9.1: 支持6槽动态解锁，通用宝石
  */
 export class GemSystem {
   constructor(scene, equipConfig) {
@@ -11,6 +12,7 @@ export class GemSystem {
     this.gemTiers = equipConfig?.gems?.tiers || ['Flawed', 'Normal', 'Flawless', 'Perfect'];
     this.mergeConfig = equipConfig?.gems?.merge || { input: 3, output: 1, upgradeTier: true };
     this.sockets = equipConfig?.sockets || {};
+    this.maxSocketsPerItem = equipConfig?.ui?.maxSocketsPerItem || 6; // v9.1
     
     // 初始化宝石库存
     if (!GameState.gems) {
@@ -49,7 +51,7 @@ export class GemSystem {
   }
   
   /**
-   * 镶嵌宝石
+   * 镶嵌宝石 (v9.1: 支持6槽动态解锁)
    */
   socketGem(itemId, gemId, socketIndex) {
     const item = this.findItemById(itemId);
@@ -59,10 +61,16 @@ export class GemSystem {
       return { success: false, error: 'Item or gem not found' };
     }
     
-    // 检查插槽数量
-    const maxSockets = this.sockets[item.slot] || 0;
-    if (socketIndex >= maxSockets) {
-      return { success: false, error: 'Invalid socket index' };
+    // v9.1: 动态计算当前装备的插槽数量
+    const unlockedSockets = this.getUnlockedSocketCount(item);
+    if (socketIndex >= unlockedSockets) {
+      return { success: false, error: `Socket ${socketIndex} not unlocked yet` };
+    }
+    
+    // v9.1: 检查通用宝石
+    const isUniversal = gem.element === 'universal';
+    if (!isUniversal && gem.element && item.slot) {
+      // 元素宝石可以在任意槽位镶嵌，不需要限制
     }
     
     // 初始化插槽
@@ -247,18 +255,48 @@ export class GemSystem {
   }
   
   /**
+   * v9.1: 获取装备已解锁插槽数量
+   * 根据稀有度和等级动态计算
+   */
+  getUnlockedSocketCount(item) {
+    if (!item) return 0;
+    
+    const baseSlots = this.sockets[item.slot] || 2;
+    const level = item.level || 1;
+    const rarity = item.rarity || 'Common';
+    
+    // 稀有度基础槽位: Common=2, Rare=3, Epic=4, Legend=5
+    const raritySlots = {
+      'Common': 2,
+      'Rare': 3,
+      'Epic': 4,
+      'Legend': 5
+    };
+    
+    let slots = raritySlots[rarity] || baseSlots;
+    
+    // Lv≥8 的 Legend 装备可解锁6槽
+    if (rarity === 'Legend' && level >= 8) {
+      slots = 6;
+    }
+    
+    return Math.min(slots, this.maxSocketsPerItem);
+  }
+  
+  /**
    * 获取装备插槽信息
    */
   getItemSocketInfo(itemId) {
     const item = this.findItemById(itemId);
     if (!item) return null;
     
-    const maxSockets = this.sockets[item.slot] || 0;
+    const unlockedSockets = this.getUnlockedSocketCount(item);
     const socketed = GameState.gems.socketed[itemId] || [];
-    const emptySlots = maxSockets - socketed.filter(g => g).length;
+    const emptySlots = unlockedSockets - socketed.filter(g => g).length;
     
     return {
-      maxSockets,
+      maxSockets: this.maxSocketsPerItem,
+      unlockedSockets,
       socketed: socketed.filter(g => g),
       emptySlots,
       canSocket: emptySlots > 0
