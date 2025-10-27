@@ -15,16 +15,20 @@ export class EquipmentSystem {
     this.drop = this.config.drop || {};
     this.ui = this.config.ui || {};
     this.rules = this.config.rules || {};
+    this.sets = this.config.sets || {};
+    this.affixLocks = this.config.affixLocks || { baseCost: 2, costMultiplierPerLock: 2 };
     
     // 初始化全局变量
     if (!GameState.equipment) {
       GameState.equipment = {
         inventory: [],
         equipped: {},
+        equippedItems: {}, // v7: 存储已装备的完整数据
         shards: 0,
         settings: {
           autoSalvage: this.ui.autoSalvage || ['Common'],
-          sort: 'power'
+          sort: 'power',
+          filter: {}
         }
       };
     }
@@ -32,8 +36,8 @@ export class EquipmentSystem {
     this.nextItemId = 1;
   }
   
-  // 生成装备
-  generateEquipment(rarityId = null, slotId = null) {
+  // v7: 生成装备（支持套装）
+  generateEquipment(rarityId = null, slotId = null, setId = null) {
     // 1. 确定稀有度
     let rarity;
     if (rarityId) {
@@ -61,6 +65,12 @@ export class EquipmentSystem {
     // 4. 计算 powerScore
     const powerScore = this.calculatePowerScore(affixList);
     
+    // v7: 随机分配套装（概率30%）
+    if (!setId && Math.random() < 0.3 && Object.keys(this.sets).length > 0) {
+      const setIds = Object.keys(this.sets);
+      setId = setIds[Math.floor(Math.random() * setIds.length)];
+    }
+    
     const item = {
       id: this.nextItemId++,
       slot,
@@ -68,9 +78,11 @@ export class EquipmentSystem {
       color: rarity.color,
       tier: rarity.tier,
       affixes: affixList,
+      affixLocks: {}, // v7: 词缀锁定状态
       powerScore,
       name: `${rarity.id} ${slot}`,
-      locked: false
+      locked: false,
+      setId: setId || null // v7: 套装 ID
     };
     
     console.log(`[Equipment] Generated: ${item.name} (Power: ${powerScore})`);
@@ -192,7 +204,7 @@ export class EquipmentSystem {
     this.scene.toastManager?.show(`获得装备: ${item.name}`, 'success', 2000);
   }
   
-  // 穿戴装备
+  // v7: 穿戴装备（存储完整数据）
   equipItem(itemId) {
     const item = GameState.equipment.inventory.find(i => i.id === itemId);
     if (!item) return false;
@@ -206,6 +218,12 @@ export class EquipmentSystem {
     // 穿戴新装备
     GameState.equipment.equipped[item.slot] = itemId;
     
+    // v7: 存储完整装备数据
+    if (!GameState.equipment.equippedItems) {
+      GameState.equipment.equippedItems = {};
+    }
+    GameState.equipment.equippedItems[itemId] = JSON.parse(JSON.stringify(item));
+    
     // 从背包移除
     GameState.equipment.inventory = GameState.equipment.inventory.filter(i => i.id !== itemId);
     
@@ -216,19 +234,27 @@ export class EquipmentSystem {
     return true;
   }
   
-  // 卸下装备
+  // v7: 卸下装备
   unequipItem(slot) {
     const itemId = GameState.equipment.equipped[slot];
     if (!itemId) return false;
     
+    // v7: 从 equippedItems 获取完整数据
+    const item = GameState.equipment.equippedItems?.[itemId];
+    if (item) {
+      // 检查背包空间
+      const maxBag = this.ui.maxBag || 24;
+      if (GameState.equipment.inventory.length >= maxBag) {
+        console.warn('[Equipment] Inventory full, cannot unequip');
+        return false;
+      }
+      
+      GameState.equipment.inventory.push(item);
+      delete GameState.equipment.equippedItems[itemId];
+    }
+    
     // 从已装备移除
     delete GameState.equipment.equipped[slot];
-    
-    // 加回背包（假设有空间）
-    const item = this.findEquippedItem(itemId);
-    if (item) {
-      GameState.equipment.inventory.push(item);
-    }
     
     // 重新计算数值
     this.recalculateStats();
@@ -265,25 +291,81 @@ export class EquipmentSystem {
     return item;
   }
   
-  // 重铸装备
-  rerollItem(itemId) {
-    const cost = this.craft.rerollCost || 2;
+  // v7: 重铸装备（支持词缀锁定）
+  rerollItem(itemId, withLocks = false) {
+    const item = GameState.equipment.inventory.find(i => i.id === itemId);
+    if (!item) return false;
+    
+    // v7: 计算成本（基础成本 × 锁定数量）
+    const lockedCount = withLocks ? Object.values(item.affixLocks || {}).filter(Boolean).length : 0;
+    const cost = this.affixLocks.baseCost * Math.pow(this.affixLocks.costMultiplierPerLock, lockedCount);
+    
     if (GameState.equipment.shards < cost) {
       console.warn('[Equipment] Not enough shards for reroll');
       return false;
     }
     
-    const item = GameState.equipment.inventory.find(i => i.id === itemId);
-    if (!item) return false;
-    
     GameState.equipment.shards -= cost;
     
-    // 重新roll词缀
-    item.affixes = this.rollAffixes(item.tier);
+    // v7: 重新roll词缀（保留锁定的）
+    if (withLocks && item.affixLocks) {
+      const newAffixes = this.rollAffixes(item.tier);
+      
+      // 保留锁定的词缀
+      Object.keys(item.affixLocks).forEach(affixKey => {
+        if (item.affixLocks[affixKey] && item.affixes[affixKey] !== undefined) {
+          newAffixes[affixKey] = item.affixes[affixKey];
+        }
+      });
+      
+      item.affixes = newAffixes;
+    } else {
+      item.affixes = this.rollAffixes(item.tier);
+    }
+    
     item.powerScore = this.calculatePowerScore(item.affixes);
     
-    console.log(`[Equipment] Rerolled ${item.name} for ${cost} shards`);
+    console.log(`[Equipment] Rerolled ${item.name} for ${cost} shards (${lockedCount} locked)`);
     return true;
+  }
+  
+  // v7: 锁定/解锁词缀
+  toggleAffixLock(itemId, affixKey) {
+    const item = GameState.equipment.inventory.find(i => i.id === itemId);
+    if (!item || !item.affixes[affixKey]) return false;
+    
+    if (!item.affixLocks) {
+      item.affixLocks = {};
+    }
+    
+    item.affixLocks[affixKey] = !item.affixLocks[affixKey];
+    console.log(`[Equipment] ${item.affixLocks[affixKey] ? 'Locked' : 'Unlocked'} affix ${affixKey} on ${item.name}`);
+    return true;
+  }
+  
+  // v7: 批量分解
+  salvageMultiple(itemIds) {
+    if (!Array.isArray(itemIds)) return 0;
+    
+    let totalShards = 0;
+    const salvaged = [];
+    
+    itemIds.forEach(itemId => {
+      const item = GameState.equipment.inventory.find(i => i.id === itemId);
+      if (item && !item.locked) {
+        const value = this.getSalvageValue(item.rarity);
+        totalShards += value;
+        salvaged.push(item.name);
+        
+        // 从背包移除
+        GameState.equipment.inventory = GameState.equipment.inventory.filter(i => i.id !== itemId);
+      }
+    });
+    
+    GameState.equipment.shards += totalShards;
+    console.log(`[Equipment] Batch salvaged ${salvaged.length} items → +${totalShards} shards`);
+    
+    return totalShards;
   }
   
   // 查找已装备的装备

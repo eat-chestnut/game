@@ -22,6 +22,8 @@ import { DailyChallengeSystem } from '../systems/DailyChallengeSystem.js';
 import { AccessibilitySystem } from '../systems/AccessibilitySystem.js';
 import { ReplaySystem } from '../systems/ReplaySystem.js';
 import { EquipmentSystem } from '../systems/EquipmentSystem.js';
+import { SetBonusSystem } from '../systems/SetBonusSystem.js';
+import { LoadoutSystem } from '../systems/LoadoutSystem.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -76,13 +78,17 @@ export class GameScene extends Phaser.Scene {
     this.accessibility = new AccessibilitySystem(this, GameState.config);
     this.replaySystem = new ReplaySystem(this, GameState.config);
     
-    // v6.1: 装备系统
+    // v6.1+v7: 装备系统
     this.loadEquipmentConfig().then(equipConfig => {
       this.equipmentSystem = new EquipmentSystem(this, equipConfig);
+      this.setBonusSystem = new SetBonusSystem(this, equipConfig); // v7
+      this.loadoutSystem = new LoadoutSystem(this, equipConfig); // v7
       console.log('[GameScene] Equipment system initialized');
     }).catch(err => {
       console.error('[GameScene] Failed to load equipment config:', err);
       this.equipmentSystem = new EquipmentSystem(this, {});
+      this.setBonusSystem = new SetBonusSystem(this, {}); // v7
+      this.loadoutSystem = new LoadoutSystem(this, {}); // v7
     });
     
     // v6: 应用每日试炼规则

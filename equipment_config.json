@@ -211,7 +211,11 @@
     "maxBag": 24,
     "autoSalvage": [
       "Common"
-    ]
+    ],
+    "lootBeams": true
+  },
+  "loadouts": {
+    "count": 3
   },
   "rules": {
     "capFireRate": 0.55,
@@ -273,5 +277,31 @@
         "lootChancePct": "Loot Chance +{v}%"
       }
     }
+  },
+  "sets": {
+    "Hunter": {
+      "name": { "zh": "猎手", "en": "Hunter" },
+      "set2": { "bulletSpeedPct": 10 },
+      "set4": { "penetrationPlus": 1, "penetrationDecayMul": 0.92 }
+    },
+    "Arcanist": {
+      "name": { "zh": "奥术", "en": "Arcanist" },
+      "set2": { "damageMulPct": 8 },
+      "set4": { "aoeScalePct": 12, "aoeCooldownPct": -10 }
+    },
+    "Vanguard": {
+      "name": { "zh": "先锋", "en": "Vanguard" },
+      "set2": { "hpMulPct": 12 },
+      "set4": { "shieldCDPct": -15, "droneDmgPct": 10 }
+    },
+    "Tempest": {
+      "name": { "zh": "风暴", "en": "Tempest" },
+      "set2": { "fireRatePct": -6 },
+      "set4": {"damageMulPct": 10, "splitChildPct": 10}
+    }
+  },
+  "affixLocks": {
+    "baseCost": 2,
+    "costMultiplierPerLock": 2
   }
 }
