@@ -1,5 +1,5 @@
 {
-  "version": "v6.1",
+  "version": "v9.0",
   "slots": [
     "Weapon",
     "Core",
@@ -303,5 +303,101 @@
   "affixLocks": {
     "baseCost": 2,
     "costMultiplierPerLock": 2
+  },
+  "upgrade": {
+    "maxLevel": 10,
+    "costShardsCurve": [0, 3, 6, 10, 15, 21, 28, 36, 45, 55],
+    "statScalePerLevel": 0.08,
+    "mergeRules": {
+      "sameSameSlot": "addLevel",
+      "maxLevelSameSameSlot": "upgradeRarity"
+    }
+  },
+  "sockets": {
+    "Weapon": 2,
+    "Core": 1,
+    "Module": 1,
+    "Charm": 1
+  },
+  "gems": {
+    "types": {
+      "Emerald": {
+        "element": "wood",
+        "name": { "zh": "翡翠", "en": "Emerald" },
+        "color": "#10B981",
+        "stats": {
+          "damageMulPct": [2, 4, 6, 9],
+          "penetrationPlus": [0, 0, 1, 1]
+        }
+      },
+      "Ruby": {
+        "element": "fire",
+        "name": { "zh": "红宝石", "en": "Ruby" },
+        "color": "#EF4444",
+        "stats": {
+          "damageMulPct": [3, 6, 9, 12],
+          "splitChildPct": [2, 4, 6, 8]
+        }
+      },
+      "Topaz": {
+        "element": "earth",
+        "name": { "zh": "黄玉", "en": "Topaz" },
+        "color": "#F59E0B",
+        "stats": {
+          "damageMulPct": [1, 2, 3, 4],
+          "penetrationPlus": [1, 1, 2, 2]
+        }
+      },
+      "Metalite": {
+        "element": "metal",
+        "name": { "zh": "金辉石", "en": "Metalite" },
+        "color": "#A78BFA",
+        "stats": {
+          "damageMulPct": [2, 4, 6, 8],
+          "reboundPlus": [0, 1, 1, 2]
+        }
+      },
+      "Sapphire": {
+        "element": "water",
+        "name": { "zh": "蓝宝石", "en": "Sapphire" },
+        "color": "#3B82F6",
+        "stats": {
+          "fireRatePct": [-1, -2, -3, -4],
+          "damageMulPct": [1, 2, 3, 4]
+        }
+      }
+    },
+    "tiers": ["Flawed", "Normal", "Flawless", "Perfect"],
+    "merge": {
+      "input": 3,
+      "output": 1,
+      "upgradeTier": true
+    },
+    "dropChance": {
+      "base": 0.08,
+      "boss": 0.4,
+      "elite": 0.15
+    }
+  },
+  "elements": {
+    "order": ["wood", "earth", "water", "fire", "metal"],
+    "bonus": 0.3,
+    "penalty": -0.3,
+    "names": {
+      "zh": {
+        "wood": "木",
+        "fire": "火",
+        "earth": "土",
+        "metal": "金",
+        "water": "水"
+      },
+      "en": {
+        "wood": "Wood",
+        "fire": "Fire",
+        "earth": "Earth",
+        "metal": "Metal",
+        "water": "Water"
+      }
+    }
   }
 }

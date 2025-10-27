@@ -102,6 +102,11 @@
     {"id": "rebound", "name": "墙面反弹", "type": "shape", "maxLevel": 2, "perLevel": {"rebounds": 1}, "decay": {"damageMultiplierPerRebound": 0.85, "angleJitterDeg": 4}},
     {"id": "defense_shield", "name": "护盾", "type": "defense", "maxLevel": 3, "perLevel": {"shieldLayers": 1, "rechargeSec": 12}},
     {"id": "summon_drone", "name": "无人机", "type": "summon", "maxLevel": 3, "perLevel": {"droneCount": [1, 2, 3], "fireIntervalSec": [1.2, 0.8, 0.6]}, "inherits": {"shapeSkills": false, "powerMultipliers": true}},
-    {"id": "aoe_blast", "name": "范围爆破", "type": "aoe", "maxLevel": 2, "perLevel": {"intervalSec": [8, 8], "damageScale": [0.8, 1.2]}, "bossScale": 0.75}
+    {"id": "aoe_blast", "name": "范围爆破", "type": "aoe", "maxLevel": 2, "perLevel": {"intervalSec": [8, 8], "damageScale": [0.8, 1.2]}, "bossScale": 0.75},
+    {"id": "elem_wood", "name": {"zh": "木灵", "en": "Wood"}, "type": "element", "maxLevel": 3, "perLevel": {"damageMulPct": [2, 4, 6], "penetrationPlus": [0, 0, 1], "elementPriorityWeight": [1, 2, 3]}, "desc": {"zh": "增强木元素亲和，提升总伤并在高等级获得少量穿透。", "en": "Increase Wood affinity, boost total damage; slight pierce at higher level."}},
+    {"id": "elem_fire", "name": {"zh": "炎息", "en": "Fire"}, "type": "element", "maxLevel": 3, "perLevel": {"damageMulPct": [3, 6, 9], "splitChildPct": [2, 4, 6], "elementPriorityWeight": [1, 2, 3]}, "desc": {"zh": "增强火元素亲和，提升总伤；分裂小弹更强（仍受全局上限限制）。", "en": "Increase Fire affinity, boost total damage; stronger split children (within global caps)."}},
+    {"id": "elem_earth", "name": {"zh": "厚土", "en": "Earth"}, "type": "element", "maxLevel": 3, "perLevel": {"damageMulPct": [1, 2, 3], "penetrationPlus": [1, 1, 1], "elementPriorityWeight": [1, 2, 3]}, "desc": {"zh": "增强土元素亲和，获得稳定的穿透能力。", "en": "Increase Earth affinity with steady penetration."}},
+    {"id": "elem_metal", "name": {"zh": "金锋", "en": "Metal"}, "type": "element", "maxLevel": 3, "perLevel": {"damageMulPct": [2, 4, 6], "reboundPlus": [0, 1, 1], "elementPriorityWeight": [1, 2, 3]}, "desc": {"zh": "增强金元素亲和，提升总伤并在高等级获得反弹层数。", "en": "Increase Metal affinity, add total damage and rebounds at higher levels."}},
+    {"id": "elem_water", "name": {"zh": "寒流", "en": "Water"}, "type": "element", "maxLevel": 3, "perLevel": {"fireRatePct": [-0.6, -1.2, -1.8], "damageMulPct": [1, 2, 3], "elementPriorityWeight": [1, 2, 3]}, "desc": {"zh": "增强水元素亲和，略微缩短射击间隔并提升总伤（遵循攻速下限）。", "en": "Increase Water affinity, slightly reduces fire interval and adds damage (respects global floors)."}}
   ]
 }

@@ -1,0 +1,291 @@
+
+GDevelop + Windsurf Codex — v9 完整版升级提示（含装备升级/合成、宝石系统、五行元素与克制）
+================================================================================
+仓库：https://github.com/eat-chestnut/game
+当前为 v9 完整版，整合自：
+- v9 主升级指令（装备升级与合成、宝石系统、五行克制 ±30%）
+- five_elements_patch.json（五行技能占位补丁）
+- enemy_elements_patch.json（敌人元素标签补丁）
+- element_matrix.json（五行相克矩阵定义）
+
+执行目标：在读取升级报告与配置后，自动修复遗留问题、补充五行内容并落地所有系统。
+禁止人工干预，冲突时直接重构覆盖。
+
+--------------------------------------------------------------------------------
+【新增内容总览】
+1. 装备升级与合成系统
+   - 装备可升级至 Lv10，按 `costShardsCurve` 消耗残片；属性随等级递增。
+   - 合成规则：同槽同稀有装备 → 提升等级或小阶品质。
+   - 新 UI：等级徽章、批量升级/合成入口、锁定保护。
+
+2. 宝石系统
+   - 各槽拥有固定插槽数：Weapon×2, Core×1, Module×1, Charm×1。
+   - 宝石类型：Emerald(木)、Ruby(火)、Topaz(土)、Metalite(金)、Sapphire(水)；可3→1升阶。
+   - 宝石继承五行属性，参与克制关系；数值受全局上限 clamp。
+
+3. 五行元素技能 & 敌人属性扩展
+   - 新增五行技能线（木/火/土/金/水），占位等级与数值保守。
+   - 敌人可拥有 1~2 个元素标签，Boss/精英多属性。
+   - 克制关系：五行环 (木→土→水→火→金→木)，+30% / -30%。
+
+4. 五行相克矩阵
+   - 攻击者对下一个元素 +30%；对上一个元素 -30%；若多属性 → 取绝对值最大项。
+
+--------------------------------------------------------------------------------
+【合并补丁】
+追加到 skill_config.json：
+```json
+[
+  {
+    "id": "elem_wood",
+    "name": {
+      "zh": "木灵",
+      "en": "Wood"
+    },
+    "type": "element",
+    "maxLevel": 3,
+    "perLevel": {
+      "damageMulPct": [
+        2,
+        4,
+        6
+      ],
+      "penetrationPlus": [
+        0,
+        0,
+        1
+      ],
+      "elementPriorityWeight": [
+        1,
+        2,
+        3
+      ]
+    },
+    "desc": {
+      "zh": "增强木元素亲和，提升总伤并在高等级获得少量穿透。",
+      "en": "Increase Wood affinity, boost total damage; slight pierce at higher level."
+    }
+  },
+  {
+    "id": "elem_fire",
+    "name": {
+      "zh": "炎息",
+      "en": "Fire"
+    },
+    "type": "element",
+    "maxLevel": 3,
+    "perLevel": {
+      "damageMulPct": [
+        3,
+        6,
+        9
+      ],
+      "splitChildPct": [
+        2,
+        4,
+        6
+      ],
+      "elementPriorityWeight": [
+        1,
+        2,
+        3
+      ]
+    },
+    "desc": {
+      "zh": "增强火元素亲和，提升总伤；分裂小弹更强（仍受全局上限限制）。",
+      "en": "Increase Fire affinity, boost total damage; stronger split children (within global caps)."
+    }
+  },
+  {
+    "id": "elem_earth",
+    "name": {
+      "zh": "厚土",
+      "en": "Earth"
+    },
+    "type": "element",
+    "maxLevel": 3,
+    "perLevel": {
+      "damageMulPct": [
+        1,
+        2,
+        3
+      ],
+      "penetrationPlus": [
+        1,
+        1,
+        1
+      ],
+      "elementPriorityWeight": [
+        1,
+        2,
+        3
+      ]
+    },
+    "desc": {
+      "zh": "增强土元素亲和，获得稳定的穿透能力。",
+      "en": "Increase Earth affinity with steady penetration."
+    }
+  },
+  {
+    "id": "elem_metal",
+    "name": {
+      "zh": "金锋",
+      "en": "Metal"
+    },
+    "type": "element",
+    "maxLevel": 3,
+    "perLevel": {
+      "damageMulPct": [
+        2,
+        4,
+        6
+      ],
+      "reboundPlus": [
+        0,
+        1,
+        1
+      ],
+      "elementPriorityWeight": [
+        1,
+        2,
+        3
+      ]
+    },
+    "desc": {
+      "zh": "增强金元素亲和，提升总伤并在高等级获得反弹层数。",
+      "en": "Increase Metal affinity, add total damage and rebounds at higher levels."
+    }
+  },
+  {
+    "id": "elem_water",
+    "name": {
+      "zh": "寒流",
+      "en": "Water"
+    },
+    "type": "element",
+    "maxLevel": 3,
+    "perLevel": {
+      "fireRatePct": [
+        -0.6,
+        -1.2,
+        -1.8
+      ],
+      "damageMulPct": [
+        1,
+        2,
+        3
+      ],
+      "elementPriorityWeight": [
+        1,
+        2,
+        3
+      ]
+    },
+    "desc": {
+      "zh": "增强水元素亲和，略微缩短射击间隔并提升总伤（遵循攻速下限）。",
+      "en": "Increase Water affinity, slightly reduces fire interval and adds damage (respects global floors)."
+    }
+  }
+]
+```
+
+追加到敌人生成器/表：
+```json
+{
+  "archetypes": {
+    "grunt": [
+      "wood"
+    ],
+    "runner": [
+      "fire"
+    ],
+    "tank": [
+      "earth"
+    ],
+    "sniper": [
+      "metal"
+    ],
+    "caster": [
+      "water"
+    ],
+    "hybrid_wf": [
+      "wood",
+      "fire"
+    ],
+    "hybrid_em": [
+      "earth",
+      "metal"
+    ]
+  },
+  "boss_examples": {
+    "boss_colossus": [
+      "earth",
+      "metal"
+    ],
+    "boss_storm": [
+      "water",
+      "fire"
+    ],
+    "boss_warden": [
+      "wood",
+      "earth"
+    ]
+  },
+  "elite_affix_overrides": {
+    "Resistant": [
+      "earth"
+    ],
+    "Healer": [
+      "water"
+    ],
+    "Splitter": [
+      "metal"
+    ]
+  },
+  "apply_rules": {
+    "mode": "append_or_create",
+    "max_tags_per_enemy": 2
+  }
+}
+```
+
+五行克制矩阵定义：
+```json
+{
+  "order": [
+    "wood",
+    "earth",
+    "water",
+    "fire",
+    "metal"
+  ],
+  "bonus": 0.3,
+  "penalty": -0.3,
+  "rules": "Attacker gets +30% vs next in order; suffers -30% vs previous in order. With multi-tag targets, pick the modifier with the largest absolute value; if tie, choose +30%."
+}
+```
+
+--------------------------------------------------------------------------------
+【执行逻辑】
+1. 启动时读取/合并配置（equipment_config、skill_config、敌人表）；若缺失字段 → 自动创建。
+2. 实现装备升级/合成、宝石镶嵌、五行技能与克制系统。
+3. 保留并强化硬约束：攻速 floor=0.60s（或 cap 更高）、乘区≤30%、穿透≤3、反弹≤2、分裂加成≤+30%。
+4. 元素修正 multiplier 在连发/散射计算前应用；HUD 显示主元素；浮字提示可关闭。
+5. QA 自动执行断言与性能压测。
+
+--------------------------------------------------------------------------------
+【自动断言】
+- 装备升级曲线与残片扣除正确。
+- 合成防重复结算、库存/锁定无异常。
+- 宝石插槽/合成/拆卸逻辑正确；数值仍受 clamp。
+- 五行技能载入成功，主元素选择逻辑符合权重。
+- 元素克制矩阵输出正确：单属性 ±30%；多属性取绝对值最大项；倍率 ∈ {0.70,1.00,1.30}。
+- 性能：背包/宝石满载时 P95≥50FPS（低性能≥45）。
+- 存档迁移：level/sockets/gems/主元素字段完整。
+
+--------------------------------------------------------------------------------
+【输出】
+- 每轮打印：变更清单、自测报告（断言+性能+迁移统计）与完成度表。
+- 若存在 `CHANGELOG.template.md` 与 `Codex_Changelog_AutoPrompt.txt`，执行自动更新并提交版本。
+
+（完）

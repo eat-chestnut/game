@@ -1,8 +1,9 @@
 import { GameState } from '../state/GameState.js';
 
 /**
- * v6.1: 装备系统
+ * v6.1+v9: 装备系统
  * 处理装备生成、掉落、穿戴、分解、锻造与数值融合
+ * v9: 添加装备等级、宝石插槽支持
  */
 export class EquipmentSystem {
   constructor(scene, config) {
@@ -17,6 +18,8 @@ export class EquipmentSystem {
     this.rules = this.config.rules || {};
     this.sets = this.config.sets || {};
     this.affixLocks = this.config.affixLocks || { baseCost: 2, costMultiplierPerLock: 2 };
+    this.upgrade = this.config.upgrade || {}; // v9: 升级配置
+    this.sockets = this.config.sockets || {}; // v9: 插槽配置
     
     // 初始化全局变量
     if (!GameState.equipment) {
@@ -78,7 +81,10 @@ export class EquipmentSystem {
       color: rarity.color,
       tier: rarity.tier,
       affixes: affixList,
+      baseAffixes: { ...affixList }, // v9: 基础词缀（用于升级缩放）
       affixLocks: {}, // v7: 词缀锁定状态
+      level: 1, // v9: 装备等级
+      sockets: [], // v9: 插槽（宝石ID数组）
       powerScore,
       name: `${rarity.id} ${slot}`,
       locked: false,
